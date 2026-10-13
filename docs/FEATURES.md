@@ -50,3 +50,5 @@ Registration and My account group six fields under Delivery address: Street Addr
 Storefront product cards anchor their price and purchase controls at the bottom, aligning them across each grid row regardless of title or description length on desktop and mobile. Descriptions remain fully visible.
 
 The floating cart stays inside the bottom-right edge of the mobile viewport, including its item-count badge, without widening the page or creating sideways scrolling.
+
+The mobile viewport does not scroll sideways on admin pages; wide order tables scroll within their own panels while the floating cart remains anchored to the viewport. Admin order lists show Status, Customer, Total, Order Number, and Placed in that order. Each status opens the order detail; the separate Open order link has been removed.

@@ -3,7 +3,7 @@
 @theme { --color-peach: #f6b69d; --color-cream: #fffaf4; --color-ink: #3e3934; --color-lilac: #e8e0f0; --color-sage: #dce5d2; }
 :root { --cream: #fffaf4; --ink: #3e3934; --muted: #79716b; --peach: #f6b69d; --border: #eee5dc; }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 28px; }
+html { scroll-behavior: smooth; scroll-padding-top: 28px; overflow-x: clip; }
 body { margin: 0; background: var(--cream); color: var(--ink); font-family: "Segoe UI", Arial, sans-serif; font-size: 15px; line-height: 1.6; }
 a { text-decoration: none; color: inherit; }
 button, input, textarea, select { font: inherit; }
@@ -141,3 +141,16 @@ img { max-width: 100%; }
 .address-fields { border:0; padding:0; margin:8px 0 0; min-width:0; }
 .address-fields legend { font-weight:600; margin-bottom:14px; padding:0; }
 .delivery-address-lines, .delivery-address-lines > span { display:block; }
+
+/* Keep administrator content inside its grid column; tables scroll within the panel. */
+.admin-content > .panel { min-width: 0; }
+.stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stat-card { min-width: 0; overflow-wrap: anywhere; }
+.table-scroll { width: 100%; max-width: 100%; overflow-x: auto; }
+.filter-form { grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)) auto; }
+.filter-form .field { min-width: 0; }
+.filter-form input, .filter-form select { max-width: 100%; }
+.order-table .status-link { display: inline-flex; border-radius: 99px; text-decoration: none; }
+.order-table .status-link:hover { opacity: .8; }
+@media (max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .filter-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .filter-form { grid-template-columns: minmax(0, 1fr); } }
