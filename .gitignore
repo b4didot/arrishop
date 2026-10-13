@@ -1,0 +1,13 @@
+# Local environment configuration
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+test-results/
+playwright-report/

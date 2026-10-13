@@ -1,0 +1,148 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+import { PGlite } from "@electric-sql/pglite";
+
+const a = "11111111-1111-4111-8111-111111111111";
+const b = "22222222-2222-4222-8222-222222222222";
+const admin = "33333333-3333-4333-8333-333333333333";
+const product = "44444444-4444-4444-8444-444444444444";
+const key = "55555555-5555-4555-8555-555555555555";
+
+test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", async (t) => {
+  const db = new PGlite();
+  t.after(() => db.close());
+  // Model Supabase's existing schemas/roles so the actual migration runs unchanged.
+  await db.exec(`
+    create role anon; create role authenticated;
+    create schema auth; create schema storage;
+    create table auth.users(id uuid primary key, email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb default '{}');
+    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+    grant usage on schema public, auth, storage to anon, authenticated;
+    grant execute on function auth.uid() to anon, authenticated;
+    create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+    create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets(id), name text, unique(bucket_id, name));
+    alter table storage.objects enable row level security;
+    grant select, insert, update, delete on storage.objects to anon, authenticated;
+  `);
+  await db.exec(await readFile(new URL("../supabase/migrations/202610130001_initial.sql", import.meta.url), "utf8"));
+  await db.exec(`insert into auth.users(id,email,email_confirmed_at) values ('${a}','a@example.test',now()),('${b}','b@example.test',now()),('${admin}','arrisnipshop@gmail.com',now());
+    insert into public.admin_users values('${admin}');
+    insert into public.products(id,title,description,price_centavos,image_path) values('${product}','Notebook','A lovely notebook',1999,'products/book.png');
+    update public.profiles set full_name='Customer',phone='09123456789',delivery_address='Manila';`);
+  const asUser = async (id: string) => {
+    await db.exec("reset role");
+    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [id]);
+    await db.exec("set role authenticated");
+  };
+  const scalar = async (sql: string, params: unknown[] = []) => (await db.query<Record<string, unknown>>(sql, params)).rows[0]?.value;
+  await t.test("public catalog works; anonymous writes and admin promotion are denied", async () => {
+    await db.exec("set role anon");
+    assert.equal(await scalar("select count(*)::integer as value from public.products"), 1);
+    await assert.rejects(db.query("select public.checkout($1)", [key]), /permission denied/);
+    await asUser(a);
+    await assert.rejects(db.query("insert into public.admin_users values($1)", [a]), /permission denied/);
+    assert.equal(await scalar("select public.is_admin() as value"), false);
+  });
+  await t.test("checkout requires payment setup and computes a server snapshot", async () => {
+    await db.query("select public.set_cart_item($1,2)", [product]);
+    await assert.rejects(db.query("select public.checkout($1)", [key]), /setting up payments/);
+    await asUser(admin);
+    await db.query("update public.payment_settings set qr_path='payment/qr.png', updated_by=$1", [admin]);
+    await asUser(a);
+    await assert.rejects(db.query("update public.orders set total_centavos=1"), /permission denied/);
+  });
+  let order: string;
+  await t.test("duplicate checkout creates one order and stable snapshots", async () => {
+    order = String(await scalar("select public.checkout($1) as value", [key]));
+    assert.equal(await scalar("select public.checkout($1) as value", [key]), order);
+    assert.equal(await scalar("select count(*)::integer as value from public.orders"), 1);
+    assert.equal(String(await scalar("select total_centavos as value from public.orders")), "3998");
+    assert.equal(await scalar("select count(*)::integer as value from public.cart_items"), 0);
+    await asUser(admin);
+    await db.query("update public.products set price_centavos=9999, title='Updated notebook' where id=$1", [product]);
+    await asUser(a);
+    assert.equal(await scalar("select title as value from public.order_items"), "Notebook");
+    assert.equal(await scalar("select unit_price_centavos as value from public.order_items"), 1999);
+  });
+  await t.test("customers cannot read each other's records or internal notes", async () => {
+    await asUser(admin);
+    await db.query("insert into public.order_admin_details(order_id,notes) values($1,'Internal only')", [order]);
+    await asUser(b);
+    assert.equal(await scalar("select count(*)::integer as value from public.orders"), 0);
+    assert.equal(await scalar("select count(*)::integer as value from public.order_items"), 0);
+    assert.equal(await scalar("select count(*)::integer as value from public.order_admin_details"), 0);
+    await assert.rejects(db.query("select public.advance_order($1,'completed')", [order]), /Administrator access/);
+    await asUser(a);
+    assert.equal(await scalar("select count(*)::integer as value from public.order_admin_details"), 0);
+    await assert.rejects(db.query("insert into public.order_admin_details(order_id,notes) values($1,'Hacked')", [order]), /row-level security/);
+  });
+  const firstPath = () => `${a}/${order}/first.png`;
+  const secondPath = () => `${a}/${order}/second.png`;
+  let firstSubmission: string;
+  await t.test("receipts enforce ownership, evidence retention, and submission idempotency", async () => {
+    await asUser(b);
+    await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [firstPath()]), /row-level security/);
+    await asUser(a);
+    await assert.rejects(db.query("select public.submit_receipt($1,$2)", [order, firstPath()]), /upload your receipt first/);
+    await db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [firstPath()]);
+    await db.query("select public.submit_receipt($1,$2)", [order, firstPath()]);
+    await db.query("select public.submit_receipt($1,$2)", [order, firstPath()]);
+    assert.equal(await scalar("select status as value from public.orders"), "verifying_payment");
+    assert.equal(await scalar("select count(*)::integer as value from public.payment_submissions"), 1);
+    assert.equal((await db.query("delete from storage.objects where name=$1 returning id", [firstPath()])).rows.length, 0);
+    assert.equal((await db.query("update storage.objects set name='overwritten' where name=$1 returning id", [firstPath()])).rows.length, 0);
+    await asUser(b);
+    assert.equal(await scalar("select count(*)::integer as value from storage.objects where bucket_id='receipts'"), 0);
+    await asUser(admin);
+    firstSubmission = String(await scalar("select id as value from public.payment_submissions where decision='pending'"));
+  });
+  await t.test("rejection requires a reason and confirmation requires sufficient funds", async () => {
+    await assert.rejects(db.query("select public.review_payment($1,$2,false,null,'')", [order, firstSubmission]), /rejection reason/);
+    await assert.rejects(db.query("select public.review_payment($1,$2,true,1)", [order, firstSubmission]), /cover the order total/);
+    await assert.rejects(db.query("select public.advance_order($1,'cancelled','Cancel')", [order]), /Review any pending receipt/);
+    await db.query("select public.review_payment($1,$2,false,null,'Receipt is unreadable')", [order, firstSubmission]);
+    assert.equal(await scalar("select status as value from public.orders"), "payment_rejected");
+    await asUser(a);
+    assert.equal(await scalar("select rejection_reason as value from public.payment_submissions"), "Receipt is unreadable");
+    await db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [secondPath()]);
+    await db.query("select public.submit_receipt($1,$2)", [order, secondPath()]);
+    assert.equal(await scalar("select status as value from public.orders"), "verifying_payment");
+    assert.equal(await scalar("select count(*)::integer as value from public.payment_submissions"), 2);
+    await assert.rejects(db.query("select public.review_payment($1,$2,true,3998)", [order, firstSubmission]), /Administrator access/);
+    await asUser(admin);
+    await assert.rejects(db.query("select public.review_payment($1,$2,true,3998)", [order, firstSubmission]), /already been reviewed/);
+    const submission = await scalar("select id as value from public.payment_submissions where decision='pending'");
+    await db.query("select public.review_payment($1,$2,true,3998)", [order, submission]);
+    assert.equal(await scalar("select status as value from public.orders"), "payment_confirmed");
+  });
+  await t.test("fulfillment follows the lifecycle and preserves audit history", async () => {
+    await assert.rejects(db.query("select public.advance_order($1,'completed')", [order]), /not allowed/);
+    await db.query("select public.advance_order($1,'processing')", [order]);
+    await db.query("select public.advance_order($1,'completed')", [order]);
+    await assert.rejects(db.query("select public.advance_order($1,'cancelled','Cancel')", [order]), /not allowed/);
+    assert.equal(await scalar("select count(*)::integer as value from public.order_status_history"), 7);
+    await asUser(a);
+    await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [`${a}/${order}/third.png`]), /row-level security/);
+  });
+  await t.test("unavailable products and invalid quantities are rejected", async () => {
+    await asUser(admin);
+    await db.query("update public.products set out_of_stock=true where id=$1", [product]);
+    await asUser(a);
+    await assert.rejects(db.query("select public.set_cart_item($1,1)", [product]), /no longer available/);
+    await assert.rejects(db.query("select public.set_cart_item($1,100)", [product]), /quantity/);
+    await asUser(admin);
+    await db.query("update public.products set out_of_stock=false where id=$1", [product]);
+    await asUser(a);
+    await db.query("select public.set_cart_item($1,1)", [product]);
+    await asUser(admin);
+    await db.query("update public.products set archived_at=now() where id=$1", [product]);
+    await asUser(a);
+    // Owners can still see and remove an archived cart item.
+    assert.equal(await scalar("select count(*)::integer as value from public.products"), 1);
+    await assert.rejects(db.query("select public.checkout($1)", [crypto.randomUUID()]), /no longer available/);
+    await db.query("select public.set_cart_item($1,0)", [product]);
+    await db.exec("reset role"); await db.query("select set_config('request.jwt.claim.sub','',false)"); await db.exec("set role anon");
+    assert.equal(await scalar("select count(*)::integer as value from public.products"), 0);
+  });
+});
