@@ -32,7 +32,8 @@ test("guests are redirected from customer and administrator routes", async ({ pa
 });
 test("registration and recovery forms have visible labels and native validation", async ({ page }, info) => {
   await page.goto("/register");
-  for (const label of ["Full name", "Email address", "Password", "Phone number", "Street Address", "Subdivision / District / Landmark", "Barangay", "City / Municipality", "Province / Region", "ZIP Code"]) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+  for (const label of ["Full name", "Social name (optional)", "Email address", "Password", "Phone number", "Street Address", "Subdivision / District / Landmark", "Barangay", "City / Municipality", "Province / Region", "ZIP Code"]) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+  expect(await page.getByLabel("Social name (optional)", { exact: true }).evaluate((element: HTMLInputElement) => element.required)).toBe(false);
   await expect(page.getByLabel("Street Address", { exact: true })).toHaveAttribute("placeholder", "House No., Unit, Block/Lot, Street");
   expect(await page.getByLabel("Subdivision / District / Landmark", { exact: true }).evaluate((element: HTMLInputElement) => element.required)).toBe(false);
   for (const label of ["Street Address", "Barangay", "City / Municipality", "Province / Region", "ZIP Code"]) expect(await page.getByLabel(label, {exact:true}).evaluate((element: HTMLInputElement) => element.required)).toBe(true);

@@ -1,9 +1,9 @@
 export type DeliveryAddress = { street_address: string; subdivision: string; barangay: string; city: string; province: string; zip_code: string };
 export type OrderStatus = "pending_payment" | "verifying_payment" | "payment_rejected" | "payment_confirmed" | "processing" | "completed" | "cancelled";
 export type Product = { id: string; title: string; description: string; price_centavos: number; image_path: string | null; image_paths: string[]; out_of_stock: boolean; archived_at: string | null; created_at: string };
-export type Profile = { id: string; full_name: string; phone: string; delivery_address: string; delivery_address_parts: Partial<DeliveryAddress> };
+export type Profile = { id: string; full_name: string; social_name: string; phone: string; delivery_address: string; delivery_address_parts: Partial<DeliveryAddress> };
 export type CartItem = { product_id: string; quantity: number; products: Product };
-export type Order = { delivery_carrier: "jnt" | "lalamove" | null; shipping_fee_centavos: number; id: string; order_number: string; customer_id: string; status: OrderStatus; total_centavos: number; customer_name: string; customer_phone: string; delivery_address: string; delivery_address_parts: Partial<DeliveryAddress>; created_at: string; updated_at: string };
+export type Order = { delivery_carrier: "jnt" | "lalamove" | null; shipping_fee_centavos: number; id: string; order_number: string; customer_id: string; status: OrderStatus; total_centavos: number; customer_name: string; customer_social_name: string; customer_phone: string; delivery_address: string; delivery_address_parts: Partial<DeliveryAddress>; created_at: string; updated_at: string };
 export type OrderItem = { id: string; title: string; unit_price_centavos: number; quantity: number };
 export type PaymentSubmission = { id: string; receipt_path: string; submitted_at: string; decision: "pending" | "confirmed" | "rejected"; amount_received_centavos: number | null; rejection_reason: string | null; reviewed_at: string | null };
 export type StatusEntry = { id: string; previous_status: OrderStatus | null; next_status: OrderStatus; reason: string | null; created_at: string };

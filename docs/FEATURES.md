@@ -6,6 +6,7 @@ The following features are implemented in the application. Live use requires the
 - Website branding is Arrie Store in the header, footer, browser titles, description, and customer completion message. The intended production domain is `arrie.store`.
 - The baked-goods storefront opens directly to the catalog. The hero, benefits strip, ordering guide, promotional banner, and How to order navigation link have been removed. Bakery icons replace decorative flowers and generic product placeholders while retaining the existing palette and layout style.
 - Supabase registration/login, password recovery, profile editing, and guest authentication redirect.
+- Registration and My account offer an optional social name for customers who order through communication channels. Checkout review shows the name when supplied. New orders keep a snapshot of it, shown in customer order details/history and beneath the full name in administrator order tables and details; administrators can search orders by that name.
 - Email verification is disabled. New registrations receive a session and return directly to the shop; no confirmation email or link is required. Password recovery still uses email.
 - New passwords require 8–128 characters; spaces are preserved when setting or entering a password.
 - Authenticated cart with quantities, removal, subtotals, and total.

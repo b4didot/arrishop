@@ -39,7 +39,7 @@ export async function register(_: ActionState, form: FormData): Promise<ActionSt
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Please enter a valid email address.");
     const newPassword = password(form);
     const { data, error } = await client.auth.signUp({ email, password: newPassword, options: {
-      data: { full_name: text(form, "full_name", "your full name", 120), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) },
+      data: { full_name: text(form, "full_name", "your full name", 120), social_name: text(form, "social_name", "your social name", 120, 0), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) },
     } });
     if (error) return { error: "We couldn't create your account. Try again, or log in if you already have an account." };
     signedIn = Boolean(data.session);
@@ -75,7 +75,7 @@ export async function saveProfile(_: ActionState, form: FormData): Promise<Actio
   const user = await requireUser("/account");
   try {
     const client = await createClient();
-    const { error } = await client.from("profiles").update({ full_name: text(form, "full_name", "your full name", 120), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) }).eq("id", user.id).select("id").single();
+    const { error } = await client.from("profiles").update({ full_name: text(form, "full_name", "your full name", 120), social_name: text(form, "social_name", "your social name", 120, 0), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) }).eq("id", user.id).select("id").single();
     dbCheck(error); revalidatePath("/account"); revalidatePath("/checkout");
     return { success: "Your details are saved." };
   } catch (error) { return failure(error); }

@@ -54,6 +54,8 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
   });
   await db.exec(await readFile(new URL("../supabase/migrations/202610130004_delivery_address_parts.sql", import.meta.url), "utf8"));
   await db.exec(await readFile(new URL("../supabase/migrations/202610130007_delivery_carriers.sql", import.meta.url), "utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/202610130008_social_names.sql", import.meta.url), "utf8"));
+  assert.equal((await db.query<{social_name:string}>("select social_name from public.profiles where id=$1", [b])).rows[0].social_name, "");
   const address = { street_address: "12 Main Street", subdivision: "", barangay: "San Jose", city: "Quezon City", province: "Metro Manila", zip_code: "0123" };
   await t.test("legacy addresses are preserved, incomplete checkout is blocked, and structured signup populates the profile", async () => {
     assert.equal((await db.query<{delivery_address:string}>("select delivery_address from public.profiles where id=$1", [a])).rows[0].delivery_address, "Manila");
@@ -62,10 +64,12 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     for (const invalid of [{...address, zip_code:"12345"}, {...address, barangay:""}, {...address, zip_code:1234}, {...address, subdivision:null}]) {
       await assert.rejects(db.query("update public.profiles set delivery_address_parts=$1::jsonb where id=$2", [JSON.stringify(invalid), a]), /profile_delivery_parts_valid/);
     }
-    await db.query("insert into auth.users(id,email,raw_user_meta_data) values('99999999-9999-4999-8999-999999999999','address@example.test',$1::jsonb)", [JSON.stringify({full_name:"New customer", phone:"09123456789", delivery_address_parts:address})]);
+    await db.query("insert into auth.users(id,email,raw_user_meta_data) values('99999999-9999-4999-8999-999999999999','address@example.test',$1::jsonb)", [JSON.stringify({full_name:"New customer", social_name:"  Sweet Baker  ", phone:"09123456789", delivery_address_parts:address})]);
     assert.equal((await db.query<{delivery_address:string}>("select delivery_address from public.profiles where id='99999999-9999-4999-8999-999999999999'")).rows[0].delivery_address, "12 Main Street, San Jose, Quezon City, Metro Manila, 0123");
+    assert.equal((await db.query<{social_name:string}>("select social_name from public.profiles where id='99999999-9999-4999-8999-999999999999'")).rows[0].social_name, "Sweet Baker");
     await db.query("delete from auth.users where id='99999999-9999-4999-8999-999999999999'");
     await db.query("update public.profiles set delivery_address_parts=$1::jsonb", [JSON.stringify(address)]);
+    await db.query("update public.profiles set social_name='Bakes by Arri' where id=$1", [a]);
   });
   const asUser = async (id: string) => {
     await db.exec("reset role");
@@ -97,9 +101,12 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     assert.equal(String(await scalar("select total_centavos as value from public.orders")), "3998");
     assert.equal(await scalar("select count(*)::integer as value from public.cart_items"), 0);
     assert.deepEqual(await scalar("select delivery_address_parts as value from public.orders"), address);
+    assert.equal(await scalar("select customer_social_name as value from public.orders"), "Bakes by Arri");
     await db.exec("reset role");
     await db.query("update public.profiles set delivery_address_parts=$1::jsonb where id=$2", [JSON.stringify({...address, city:"Manila"}), a]);
+    await db.query("update public.profiles set social_name='Another alias' where id=$1", [a]);
     assert.deepEqual(await scalar("select delivery_address_parts as value from public.orders"), address);
+    assert.equal(await scalar("select customer_social_name as value from public.orders"), "Bakes by Arri");
 
     await asUser(admin);
     await db.query("update public.products set price_centavos=9999, title='Updated notebook' where id=$1", [product]);
