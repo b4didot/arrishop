@@ -126,30 +126,38 @@ export async function uploadReceipt(_: ActionState, form: FormData): Promise<Act
 }
 export async function saveProduct(_: ActionState, form: FormData): Promise<ActionState> {
   await requireAdmin();
-  let uploadedPath: string | null = null;
   const client = await createClient();
   try {
-    const id = form.get("id") ? uuid(form.get("id")) : crypto.randomUUID();
+    const id = uuid(form.get("product_id"));
+    if (form.get("id") && uuid(form.get("id")) !== id) throw new Error("Please refresh the page and try again.");
     const title = text(form, "title", "a product name", 120);
     const description = text(form, "description", "a description", 2000);
     const price = centavos(form.get("price"));
-    const image = await imageFile(form, "photo", !form.get("id"));
-    let imagePath: string | undefined;
-    if (image) {
-      imagePath = `products/${id}/${crypto.randomUUID()}.${image.extension}`;
-      const { error } = await client.storage.from("shop-images").upload(imagePath, image.bytes, { contentType: image.type, upsert: false });
-      if (error) throw new Error("We couldn't upload the product photo. Please try again.");
-      uploadedPath = imagePath;
+    const paths: unknown = JSON.parse(text(form, "image_paths", "product photos", 2000));
+    const primary = text(form, "image_path", "a primary photo", 500);
+    if (!Array.isArray(paths) || paths.length < 1 || paths.length > 3 || new Set(paths).size !== paths.length || !paths.includes(primary) || paths.some((path) => typeof path !== "string")) throw new Error("Add one to three photos and choose a primary photo.");
+    const { data: existing, error: readError } = await client.from("products").select("*").eq("id", id).maybeSingle();
+    dbCheck(readError);
+    if (Boolean(form.get("id")) !== Boolean(existing)) throw new Error("This product changed. Please refresh the page and try again.");
+    const saved: string[] = existing?.image_paths ?? (existing?.image_path ? [existing.image_path] : []);
+    for (const path of paths as string[]) {
+      if (saved.includes(path)) continue;
+      if (!new RegExp(`^products/${id}/[0-9a-f-]{36}\\.(jpg|png|webp)$`).test(path)) throw new Error("Please upload photos for this product.");
+      const { data: blob, error } = await client.storage.from("shop-images").download(path);
+      if (error || !blob) throw new Error("We couldn't find your photo. Please upload it again.");
+      const image = new FormData(); image.set("photo", new File([blob], "photo", { type: blob.type }));
+      await imageFile(image, "photo");
     }
-    const values = { title, description, price_centavos: price, out_of_stock: form.get("out_of_stock") === "on", ...(imagePath ? { image_path: imagePath } : {}) };
+    const values = { title, description, price_centavos: price, out_of_stock: form.get("out_of_stock") === "on", image_path: primary, image_paths: paths };
     const result = form.get("id") ? await client.from("products").update(values).eq("id", id).select("id").single() : await client.from("products").insert({ id, ...values }).select("id").single();
     dbCheck(result.error); revalidatePath("/"); revalidatePath("/admin/products");
     return { success: "Product saved." };
   } catch (error) {
-    if (uploadedPath) await client.storage.from("shop-images").remove([uploadedPath]);
+    // Retain staged images on uncertain outcomes; never delete an image a save may have committed.
     return failure(error);
   }
 }
+
 export async function toggleArchive(_: ActionState, form: FormData): Promise<ActionState> {
   await requireAdmin();
   try {

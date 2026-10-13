@@ -1,10 +1,11 @@
-import Link from "next/link";
+import Link from "@/components/app-link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { statusLabels } from "@/lib/format";
 import { AdminOrderTable } from "@/components/admin-order-table";
 import { Field, PageHeading } from "@/components/ui";
 import type { Order, OrderStatus } from "@/types";
+import { NavigationForm } from "@/components/pending-form";
 
 export default async function Orders({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; date?: string; page?: string }> }) {
   await requireAdmin();
@@ -24,5 +25,5 @@ export default async function Orders({ searchParams }: { searchParams: Promise<{
   const { data, count, error } = await query.range((page - 1) * 20, page * 20 - 1);
   if (error) throw new Error("We couldn't load orders.");
   const pageUrl = (value: number) => `/admin/orders?${new URLSearchParams({ q: search, status, date, page: String(value) })}`;
-  return <><PageHeading eyebrow="EVERY LITTLE ORDER" title="Orders" description="Find an order, review a payment, or move fulfillment along." /><form className="filter-form" action="/admin/orders"><Field label="Search order or customer"><input name="q" defaultValue={params.q} maxLength={100} placeholder="Order number or customer name" /></Field><Field label="Status"><select name="status" defaultValue={status}><option value="">All statuses</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field><Field label="Date placed (Philippine time)"><input name="date" type="date" defaultValue={date} /></Field><button className="button">Filter orders</button></form><section className="panel"><div className="panel-header"><h2>{count ?? 0} {(count ?? 0) === 1 ? "order" : "orders"}</h2><Link className="text-link" href="/admin/orders">Clear filters</Link></div><AdminOrderTable orders={(data ?? []) as Order[]} />{(page > 1 || (count ?? 0) > page * 20) && <nav className="pagination" aria-label="Order pages"><Link href={pageUrl(Math.max(1, page - 1))}>Previous</Link><span>Page {page}</span>{(count ?? 0) > page * 20 && <Link href={pageUrl(page + 1)}>Next</Link>}</nav>}</section></>;
+  return <><PageHeading eyebrow="EVERY LITTLE ORDER" title="Orders" description="Find an order, review a payment, or move fulfillment along." /><NavigationForm className="filter-form" action="/admin/orders"><Field label="Search order or customer"><input name="q" defaultValue={params.q} maxLength={100} placeholder="Order number or customer name" /></Field><Field label="Status"><select name="status" defaultValue={status}><option value="">All statuses</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field><Field label="Date placed (Philippine time)"><input name="date" type="date" defaultValue={date} /></Field><button className="button">Filter orders</button></NavigationForm><section className="panel"><div className="panel-header"><h2>{count ?? 0} {(count ?? 0) === 1 ? "order" : "orders"}</h2><Link className="text-link" href="/admin/orders">Clear filters</Link></div><AdminOrderTable orders={(data ?? []) as Order[]} />{(page > 1 || (count ?? 0) > page * 20) && <nav className="pagination" aria-label="Order pages"><Link href={pageUrl(Math.max(1, page - 1))}>Previous</Link><span>Page {page}</span>{(count ?? 0) > page * 20 && <Link href={pageUrl(page + 1)}>Next</Link>}</nav>}</section></>;
 }

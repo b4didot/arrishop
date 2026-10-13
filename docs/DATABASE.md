@@ -59,3 +59,12 @@ All security-definer functions fix their search path and have explicit execution
 `supabase/verify-setup.sql` provides a read-only summary of deployed tables/RLS, buckets, migration history, and intended administrator readiness. After the user registered `arrisnipshop@gmail.com`, administrator provisioning was completed and the remote check returned `admin_account_exists = true` and `admin_access_granted = true`.
 
 Administrator membership was also granted to the existing account `johnallenarias.pm@gmail.com` at the user's request and verified remotely. The bootstrap script remains scoped to the original shop account; additional administrators are granted membership through trusted provisioning, never public signup.
+
+
+Migration 202610130002_product_photos.sql adds products.image_paths (non-null text array, up to three paths), backfilled from existing image_path. image_path remains the primary for compatibility with deployed code. The constraint requires the primary to belong to the gallery, forbids null entries, and allows empty legacy records only with a null primary. Storage cleanup protects all gallery images.
+
+Gallery migrations 202610130002 and 202610130003 were applied to the linked Supabase project with user authorization. The compatibility trigger backfills a collection for inserts or photo replacements from the currently deployed single-photo editor; selecting an existing gallery primary preserves the collection. Gallery saves still enforce the collection constraint.
+
+## Authorized data reset
+
+For the October 13, 2026 launch reset, the owner requested removal of all orders and all Auth users except `johnallenarias.pm@gmail.com` and `arrisnipshop@gmail.com`. This is a one-time administrative operation, not a migration or an application feature. Delete order items, payment submissions, internal order notes, and status history before orders in one transaction; remove the unwanted Auth users and their cascading profiles, carts, identities, and sessions. Preserve both retained accounts and administrator memberships, products/photos, payment settings, and the order-number sequence. Remove obsolete receipt files through the Storage API rather than deleting storage metadata directly. Verify remaining counts and retained administrator access afterward.

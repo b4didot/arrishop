@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/app-link";
 import { createHash } from "node:crypto";
 import { requireUser } from "@/lib/auth";
 import { getCart, getProfile } from "@/lib/data";

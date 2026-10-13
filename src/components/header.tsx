@@ -1,8 +1,9 @@
-import Link from "next/link";
+import Link from "@/components/app-link";
 import { Croissant, ShoppingBasket, UserRound, LayoutDashboard, LogOut } from "lucide-react";
 import { getViewer } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions";
+import { PendingForm } from "@/components/pending-form";
 
 export async function Header() {
   const { user, admin } = await getViewer();
@@ -19,7 +20,7 @@ export async function Header() {
       <nav className="main-nav" aria-label="Main navigation"><Link href="/#shop">Shop</Link>{user && <Link href="/orders">My Orders</Link>}</nav>
       <div className="header-actions">{admin && <Link href="/admin" className="icon-link" aria-label="Admin dashboard"><LayoutDashboard size={20} /><span className="desktop-label">Admin</span></Link>}
         <Link href={user ? "/account" : "/login"} className="icon-link"><UserRound size={20} /><span className="desktop-label">{user ? "Account" : "Log in"}</span></Link>
-        {user && <form action={signOut}><button className="icon-link" type="submit" aria-label="Log out"><LogOut size={18} /></button></form>}
+        {user && <PendingForm action={signOut}><button className="icon-link" type="submit" aria-label="Log out"><LogOut size={18} /></button></PendingForm>}
       </div>
     </div></header>
     <Link href="/cart" className="floating-cart" aria-label={`Cart, ${count} ${count === 1 ? "item" : "items"}`}><ShoppingBasket size={27} strokeWidth={1.8} /><span className="floating-cart-count" aria-hidden="true">{count}</span></Link>

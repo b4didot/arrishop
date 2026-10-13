@@ -30,6 +30,28 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     insert into public.admin_users values('${admin}');
     insert into public.products(id,title,description,price_centavos,image_path) values('${product}','Notebook','A lovely notebook',1999,'products/book.png');
     update public.profiles set full_name='Customer',phone='09123456789',delivery_address='Manila';`);
+  await db.exec(await readFile(new URL("../supabase/migrations/202610130002_product_photos.sql", import.meta.url), "utf8"));
+  await t.test("gallery backfills existing photos and enforces primary and three-photo limits", async () => {
+    const row = (await db.query<{image_paths: string[]}>("select image_paths from public.products where id=$1", [product])).rows[0];
+    assert.deepEqual(row.image_paths, ["products/book.png"]);
+    await assert.rejects(db.query("update public.products set image_paths=array['a','b','c','d'] where id=$1", [product]), /product_photo_collection/);
+    await assert.rejects(db.query("update public.products set image_path='missing' where id=$1", [product]), /product_photo_collection/);
+    await assert.rejects(db.query("update public.products set image_paths=array[null]::text[] where id=$1", [product]), /product_photo_collection/);
+    await db.query("update public.products set image_paths=array['products/book.png','products/second.png'] where id=$1", [product]);
+    await db.exec(`insert into storage.objects(bucket_id,name) values ('shop-images','products/second.png'); set role authenticated;`);
+    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [admin]);
+    await db.exec("delete from storage.objects where name='products/second.png'");
+    assert.equal((await db.query("select name from storage.objects where name='products/second.png'")).rows.length, 1);
+    await db.exec("reset role");
+  });
+  await db.exec(await readFile(new URL("../supabase/migrations/202610130003_product_photo_compatibility.sql", import.meta.url), "utf8"));
+  await t.test("deployed single-photo edits remain compatible; gallery primary selection preserves other photos", async () => {
+    await db.query("update public.products set image_path='products/replacement.png' where id=$1", [product]);
+    assert.deepEqual((await db.query<{image_paths:string[]}>("select image_paths from public.products where id=$1", [product])).rows[0].image_paths, ["products/replacement.png"]);
+    await db.query("update public.products set image_paths=array['products/book.png','products/second.png','products/third.png'], image_path='products/second.png' where id=$1", [product]);
+    await db.query("update public.products set image_path='products/third.png' where id=$1", [product]);
+    assert.equal((await db.query<{image_paths:string[]}>("select image_paths from public.products where id=$1", [product])).rows[0].image_paths.length, 3);
+  });
   const asUser = async (id: string) => {
     await db.exec("reset role");
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [id]);

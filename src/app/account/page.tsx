@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/app-link";
 import { requireUser, getViewer } from "@/lib/auth";
 import { getProfile } from "@/lib/data";
 import { saveProfile } from "@/app/actions";

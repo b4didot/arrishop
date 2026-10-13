@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/app-link";
 import { dateTime, money } from "@/lib/format";
 import type { Order } from "@/types";
 import { StatusBadge } from "@/components/ui";

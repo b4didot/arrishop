@@ -34,5 +34,12 @@ Money displays in Philippine Peso and dates in Philippine local time. Excluded f
 - Receipt links are private signed links that expire after five minutes; refresh the order page for new links.
 - Product creation requires a photo. Products can be edited, made unavailable, archived, or restored. Replaced asset paths remain distinct.
 - Forms disable repeated submission while pending, show errors/success feedback, and confirm order placement, receipt submission, payment review, fulfillment changes, cancellation, archival, and payment-setting changes.
+- Pending page navigation and data actions display a centered cream rectangle with a spinner and the two-word message “Please wait.” A subtle backdrop and modal focus prevent interaction with the page while loading; scrolling is locked and Escape does not dismiss the loader.
+- Loading coverage includes customer/admin navigation and pagination, authentication and password recovery, profile edits, cart changes, checkout, receipt/product/QR uploads, product availability/archive edits, payment decisions, fulfillment/cancellation, internal notes, logout, admin order filters, and error-page retries. The loader clears after completion or failure so normal validation/error feedback remains usable.
 
 Build, TypeScript, local database tests, and guest browser tests pass. Real email delivery, signed uploads, and a full authenticated customer/admin journey on Supabase remain to be verified after external setup.
+
+
+Administrators can add, replace, or remove up to three product photos with immediate previews. Make primary chooses the storefront photo; Save product saves the selection. At least one photo is required. Customers click a photo to open a responsive viewer with side arrows and an X, without thumbnails. Keyboard arrows, Escape, and touch swipes work too.
+
+The customer photo viewer uses the viewport without a cream card. Photos retain their proportions and have rounded corners directly against the dimmed backdrop. Compact arrows sit outside the photo's left and right edges, and X sits above its top-right corner. Space for the controls keeps them visible on mobile without covering the photo.

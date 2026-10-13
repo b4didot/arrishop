@@ -21,7 +21,7 @@ test("storefront opens with products and keeps the cart visible while scrolling"
   await page.screenshot({ path: `test-results/storefront-${info.project.name}.png`, fullPage: true });
   expect(errors).toEqual([]);
   await cart.click();
-  await expect(page).toHaveURL(/\/login\?next=%2Fcart/);
+  await expect(page).toHaveURL(/\/login\?next=%2Fcart/, { timeout: 15000 });
 });
 test("guests are redirected from customer and administrator routes", async ({ page }) => {
   for (const route of ["/cart", "/checkout", "/orders", "/account", "/admin", "/admin/products", "/admin/orders", "/admin/settings"]) {

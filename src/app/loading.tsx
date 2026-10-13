@@ -1,2 +1,3 @@
-import { LoaderCircle } from "lucide-react";
-export default function Loading() { return <div className="loading-shell" role="status"><LoaderCircle size={23} className="spin" /> Getting things ready…</div>; }
+"use client";
+import { LoadingCard, LoadingSignal } from "@/components/loading-provider";
+export default function Loading() { return <><LoadingSignal pending /><div className="route-loading-space" aria-hidden="true" /><div className="route-loading-overlay"><LoadingCard /></div></>; }

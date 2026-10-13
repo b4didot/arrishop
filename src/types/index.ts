@@ -1,5 +1,5 @@
 export type OrderStatus = "pending_payment" | "verifying_payment" | "payment_rejected" | "payment_confirmed" | "processing" | "completed" | "cancelled";
-export type Product = { id: string; title: string; description: string; price_centavos: number; image_path: string | null; out_of_stock: boolean; archived_at: string | null; created_at: string };
+export type Product = { id: string; title: string; description: string; price_centavos: number; image_path: string | null; image_paths: string[]; out_of_stock: boolean; archived_at: string | null; created_at: string };
 export type Profile = { id: string; full_name: string; phone: string; delivery_address: string };
 export type CartItem = { product_id: string; quantity: number; products: Product };
 export type Order = { id: string; order_number: string; customer_id: string; status: OrderStatus; total_centavos: number; customer_name: string; customer_phone: string; delivery_address: string; created_at: string; updated_at: string };

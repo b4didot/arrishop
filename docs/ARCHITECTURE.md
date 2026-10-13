@@ -26,6 +26,15 @@ The storefront leads directly with the live baked-goods catalog and retains its 
 
 The server-rendered header supplies the fixed cart link and sums persisted cart quantities for its badge. Existing layout revalidation refreshes that count after cart/checkout mutations. `PaymentReview` owns only the transient confirm/reject choice; the existing server action and database RPC still own payment review. The administrator detail page shows review and subsequent fulfillment in a single panel based on the persisted order status.
 
+`LoadingProvider` in the root layout owns transient UI request signals. Each pending source registers a React-generated identifier and removes its signal on completion or unmount; another pending request keeps the page locked. No persisted data or database rules are changed by loading states.
+
+`AppLink` retains Next.js Link behavior and observes `useLinkStatus`. `ActionForm` reports `useActionState` pending; logout's `PendingForm` observes `useFormStatus`. Admin filters use `NavigationForm` with a router transition, and error retries report their transition. The route `loading.tsx` fallback bridges navigation into server-rendered page data loading. A CSS overlay supplies immediate fallback feedback before hydration; the shared native modal takes over after its signal registers.
+
+The modal lives outside the inert application shell, traps focus, prevents Escape dismissal, locks scrolling, and restores focus when it closes. Passive link prefetch, image fetching, same-page anchor scrolling, and receipt links opened in another tab do not lock the current page. There is no global fetch interception or artificial minimum loading duration. Normal completion, action validation errors, redirects, and component cleanup release the relevant signals.
+
 Local validation covers the production build, TypeScript, PostgreSQL logic/RLS via PGlite with Supabase schema stubs, and desktop/mobile Chromium browser tests. Live Auth, Storage API, and real simultaneous Supabase requests still require deployment setup and integration verification.
 
 Production is hosted on Vercel in `brightly-os-projects/arrie-store`, connected to `b4didot/arrishop` with automatic deployments from `main`. `arrie.store` is canonical and `www.arrie.store` redirects to it. Hosted runtime configuration uses the existing Supabase project; local development retains its own localhost origin. Supabase's production Site URL and callback allowlist match these origins. Hosted build and guest browser checks pass; authenticated payment/recovery and simultaneous transaction checks are separate integration verification.
+
+
+ProductEditor owns draft photos and primary selection. Authenticated browser uploads go directly to Supabase Storage under administrator RLS, avoiding Vercel request limits; the shared loading overlay covers upload and save together. saveProduct validates administrator access, new path product IDs, signatures, and collection size. Uncertain saves retain staged files to avoid deleting committed assets. ProductGallery owns modal/index state and uses a native dialog for focus trapping, scroll locking, and focus restoration.

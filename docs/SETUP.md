@@ -83,6 +83,8 @@ The database tests run the real migration and RPCs in in-memory PostgreSQL via P
 
 Browser tests cover desktop/mobile catalog layout, the floating cart's position and navigation, forms, guest route protection, and invalid links. They work with populated or empty catalogs and use `http://localhost:3000` to match the dev server's origin. They use an installed Chrome/Edge on Windows when available. On another machine, run `npx playwright install chromium` if no browser is available. Results/screenshots are ignored by Git.
 
+Loading-state browser tests deliberately pause local navigation/server-action requests, verify the centered modal and interaction lock, then verify cleanup after success or validation failure. The form test sends an empty password to local server validation; it does not attempt Supabase login, create accounts, submit orders, or send emails. Use local mode while reviewing these changes. `PLAYWRIGHT_BASE_URL` enables deployment tests, but an older deployed version will not contain an uncommitted local loading-state implementation.
+
 After setup, verify with two separate customer accounts and the administrator: registration with immediate login/password recovery, profile updates, available/unavailable products, cart quantities, checkout double submission and stale prices, QR display, private uploads, rejection/resubmission, amount confirmation, processing/completion, cancellation, filters, and private notes. Confirm that one customer cannot read another's orders/receipts even by direct API calls. Test simultaneous retries in separate sessions against Supabase.
 
 ## Vercel
@@ -123,3 +125,6 @@ Remove-Item Env:PLAYWRIGHT_BASE_URL
 ```
 
 Future changes deploy automatically when pushed to `main`. `vercel deploy --prod --scope brightly-os-projects` is also available from the linked checkout. Reconfirm domain ownership/project links before changes that move production traffic.
+
+
+Product galleries require migration 202610130002_product_photos.sql. Existing photos are backfilled automatically. Product uploads go directly from the authenticated browser to shop-images, up to 5 MB each; three photos do not require a larger Next.js or Vercel request limit.

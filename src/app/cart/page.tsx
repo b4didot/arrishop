@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import Link from "@/components/app-link";
 import { ArrowRight, Croissant, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getCart, publicImage } from "@/lib/data";
