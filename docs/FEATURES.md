@@ -13,6 +13,7 @@ The following features are implemented in the application. Live use requires the
 - A fixed bottom-right cart button is visible across pages and scrolling, with a badge showing the sum of item quantities. Clicking it opens the existing cart page; guest login behavior is unchanged.
 - Server-validated checkout with delivery review, unique order number, immutable pricing snapshots, and duplicate-submission protection.
 - One global administrator-managed payment QR, friendly instructions, private receipt images, manual verification, rejection reasons, and repeat receipt submission on the same order.
+- Submitting payment proof requires a receipt image. The server checks its size, stated format, file signature, and decodes the image before upload; malformed or truncated files stay out of payment review. Order placement still precedes payment and receipt submission.
 - Customer order history, detail, status, receipts, and rejection feedback.
 - Protected administrator overview, product/photo management, availability/archive controls, order search/filter/details, payment review with actual amount, private notes, and fulfillment status updates.
 - Payment review and fulfillment share one administrator panel. Choose Confirm to enter the actual amount received, or Reject to enter a mandatory customer-visible reason. After confirmation, that same panel offers Start processing, then Mark completed. Payment status rules and confirmation dialogs are unchanged.

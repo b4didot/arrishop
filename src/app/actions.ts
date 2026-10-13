@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { centavos, deliveryAddress, imageFile, password, quantity, safeNext, text, uuid } from "@/lib/validation";
+import { receiptImageFile } from "@/lib/receipt-validation";
 import { deliveryCarrier } from "@/lib/delivery";
 import type { ActionState } from "@/types";
 
@@ -113,7 +114,7 @@ export async function uploadReceipt(_: ActionState, form: FormData): Promise<Act
   try {
     const id = uuid(form.get("order_id"));
     const submission = uuid(form.get("submission_key"));
-    const image = (await imageFile(form, "receipt"))!;
+    const image = await receiptImageFile(form);
     const path = `${user.id}/${id}/${submission}.${image.extension}`;
     const client = await createClient();
     const { error: uploadError } = await client.storage.from("receipts").upload(path, image.bytes, { contentType: image.type, upsert: false });
