@@ -48,3 +48,5 @@ The customer photo viewer uses the viewport without a cream card. Photos retain 
 Registration and My account group six fields under Delivery address: Street Address, optional Subdivision / District / Landmark, Barangay, City / Municipality, Province / Region, and a required four-digit ZIP Code. ZIP codes are text so leading zeros are preserved. Checkout requires all mandatory fields; existing customers complete the new fields in My account without their previous address being guessed or discarded. Checkout and order details label each part for delivery booking. Existing orders retain their original address snapshots.
 
 Storefront product cards anchor their price and purchase controls at the bottom, aligning them across each grid row regardless of title or description length on desktop and mobile. Descriptions remain fully visible.
+
+The floating cart stays inside the bottom-right edge of the mobile viewport, including its item-count badge, without widening the page or creating sideways scrolling.
