@@ -112,7 +112,7 @@ The intended production domain is `arrie.store`; the website name is Arrie Store
 - Production variables contain the configured Supabase URL/public key and `NEXT_PUBLIC_SITE_URL=https://arrie.store`. Preview uses the same backend with `NEXT_PUBLIC_SITE_URL=https://arrie-store.vercel.app`. Configure a separate backend/origin if isolated preview data or per-deployment recovery is needed.
 - Supabase Site URL is `https://arrie.store`. Redirect allowlist includes the apex, www, and fallback Vercel `/auth/callback` URLs plus both localhost callback URLs. Email confirmation remains disabled.
 - The hosted production build succeeded. Eight desktop/mobile guest browser checks passed against both the generated Vercel hostname and the final custom domain. Public product photos render correctly. Tests did not create real orders, review real payments, or send recovery emails.
-- `.vercelignore` excludes environment files, runtime output, local traces, and development-only directories from CLI uploads. `.vercel/` metadata and CLI-written `.env.local` credentials remain ignored by Git.
+- `.vercelignore` excludes environment files, runtime output, local traces, and development-only directories from CLI/Git deployments. Directory rules are anchored at the repository root so `/supabase/` setup files are excluded while `src/lib/supabase/` runtime code is retained. `.vercel/` metadata and CLI-written `.env.local` credentials remain ignored by Git.
 
 To check the live site with the existing browser suite:
 
