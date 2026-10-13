@@ -1,0 +1,13 @@
+.env*
+.git/
+.vercel/
+.next/
+node_modules/
+test-results/
+playwright-report/
+*.tsbuildinfo
+docs/
+scripts/
+supabase/
+tests/
+playwright.config.ts

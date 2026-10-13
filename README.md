@@ -2,6 +2,8 @@
 
 A small, cheerful e-commerce app built with Next.js, React, TypeScript, Tailwind CSS, and Supabase, ready for Vercel configuration. Customers browse, manage their cart, place orders, pay using a permanent QR, and submit private receipts. Administrators manage products, review payments, and fulfill orders.
 
+Live website: **https://arrie.store**. `https://www.arrie.store` redirects to it. The Vercel project `brightly-os-projects/arrie-store` is connected to `b4didot/arrishop` on GitHub; pushes to `main` deploy to production.
+
 ```powershell
 npm ci
 npm run dev
@@ -17,4 +19,4 @@ Open `http://localhost:3000`. Copy `.env.example` to `.env.local` for another ch
 - [Database and policies](docs/DATABASE.md)
 - [Implementation plan and status](docs/IMPLEMENTATION_PLAN.md)
 
-Checks: `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:browser`. Local checks do not replace the live Auth/Storage/customer isolation checks in the setup guide. The initial migration is deployed and verified; the website has not been deployed to Vercel.
+Checks: `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:browser`. The initial migration and website are deployed. Eight desktop/mobile guest browser checks pass against the live domain; local checks do not replace authenticated customer/payment/recovery-email verification described in the setup guide.

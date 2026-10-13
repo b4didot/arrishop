@@ -1,4 +1,8 @@
-param([switch]$EnableConfirmation)
+param(
+  [switch]$EnableConfirmation,
+  [string]$SiteUrl,
+  [string[]]$AdditionalRedirectUrls
+)
 
 $ErrorActionPreference = 'Stop'
 $shopProjectRef = 'spcuuigipezraflkmsaj'
@@ -55,14 +59,34 @@ $shopEndpoint = 'https://api.supabase.com/v1/projects/' + $shopProjectRef + '/co
 try {
   $shopBefore = Invoke-RestMethod -Uri $shopEndpoint -Headers $shopHeaders -Method Get
   $shopAutoConfirm = !$EnableConfirmation.IsPresent
-  $shopBody = @{ mailer_autoconfirm = $shopAutoConfirm } | ConvertTo-Json -Compress
+  $shopChanges = @{ mailer_autoconfirm = $shopAutoConfirm }
+  if ($SiteUrl) {
+    $shopOrigin = [uri]$SiteUrl
+    if (!$shopOrigin.IsAbsoluteUri -or $shopOrigin.Scheme -notin @('https','http')) { throw 'Invalid site URL.' }
+    $shopChanges.site_url = $SiteUrl.TrimEnd('/')
+  }
+  if ($AdditionalRedirectUrls) {
+    foreach ($shopRedirect in $AdditionalRedirectUrls) {
+      $shopRedirectUri = [uri]$shopRedirect
+      if (!$shopRedirectUri.IsAbsoluteUri -or $shopRedirectUri.Scheme -notin @('https','http')) { throw 'Invalid redirect URL.' }
+    }
+    $shopRedirects = @($shopBefore.uri_allow_list -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }) + $AdditionalRedirectUrls
+    $shopChanges.uri_allow_list = ($shopRedirects | Select-Object -Unique) -join ','
+  }
+  $shopBody = $shopChanges | ConvertTo-Json -Compress
   Invoke-RestMethod -Uri $shopEndpoint -Headers $shopHeaders -Method Patch -ContentType 'application/json' -Body $shopBody | Out-Null
   $shopAfter = Invoke-RestMethod -Uri $shopEndpoint -Headers $shopHeaders -Method Get
   if ($shopAfter.mailer_autoconfirm -ne $shopAutoConfirm) { throw 'Authentication setting did not match the requested value.' }
+  if ($SiteUrl -and $shopAfter.site_url -ne $SiteUrl.TrimEnd('/')) { throw 'Site URL was not updated.' }
+  if ($AdditionalRedirectUrls) {
+    foreach ($shopRedirect in $AdditionalRedirectUrls) {
+      if ($shopRedirect -notin ($shopAfter.uri_allow_list -split ',')) { throw 'Redirect URL was not added.' }
+    }
+  }
   $shopChangedFields = @($shopBefore.PSObject.Properties | Where-Object {
     ($_.Value | ConvertTo-Json -Depth 20 -Compress) -cne ($shopAfter.($_.Name) | ConvertTo-Json -Depth 20 -Compress)
   } | Select-Object -ExpandProperty Name)
-  [PSCustomObject]@{ Project = $shopProjectRef; EmailConfirmationRequired = !$shopAfter.mailer_autoconfirm; ChangedSettings = $shopChangedFields } | ConvertTo-Json -Compress
+  [PSCustomObject]@{ Project = $shopProjectRef; EmailConfirmationRequired = !$shopAfter.mailer_autoconfirm; SiteUrl = $shopAfter.site_url; RedirectUrls = ($shopAfter.uri_allow_list -split ','); ChangedSettings = $shopChangedFields } | ConvertTo-Json -Compress
 } catch {
-  throw 'Could not update or verify Supabase email confirmation. Check the CLI account permissions and project connection.'
+  throw 'Could not update or verify Supabase authentication settings. Check the CLI account permissions and project connection.'
 } finally { $shopToken = $null; $shopHeaders = $null; $shopBefore = $null; $shopAfter = $null }

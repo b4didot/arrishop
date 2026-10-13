@@ -62,7 +62,7 @@ The initial remote push succeeded. The CLI emitted a warning that its optional l
 
 ## Email confirmation setting
 
-Email confirmation is disabled in both the local `[auth.email]` configuration and the hosted project. The Windows helper `scripts/set-email-confirmation.ps1` changes only `mailer_autoconfirm` through the Supabase Management API and verifies the result. It uses the already-saved CLI credential in memory without printing or writing it, and checks the linked project before updating it:
+Email confirmation is disabled in both the local `[auth.email]` configuration and the hosted project. By default, the Windows helper `scripts/set-email-confirmation.ps1` changes only `mailer_autoconfirm` through the Supabase Management API and verifies the result. Optional `-SiteUrl` and `-AdditionalRedirectUrls` arguments update the canonical origin and append redirect URLs while preserving existing entries. It uses the already-saved CLI credential in memory without printing or writing it, and checks the linked project before updating it:
 
 ```powershell
 ./scripts/set-email-confirmation.ps1
@@ -89,7 +89,7 @@ After setup, verify with two separate customer accounts and the administrator: r
 
 Import this repository as a Next.js project. Configure all three environment variables for each intended deployment environment; set NEXT_PUBLIC_SITE_URL to that deployment's canonical origin. Add its exact `/auth/callback` URL to Supabase Auth's redirect allowlist. Build with `npm run build`. Do not commit local environment files or add a secret/service-role key to a public variable.
 
-Before public launch, configure and test production email delivery in Supabase, verify the real QR recipient, settle delivery-charge/underpayment policies, and complete the live customer/admin checks above. The application has not been deployed by this change.
+The application is deployed at `https://arrie.store`. Verify production password-recovery email delivery, the real QR recipient, delivery-charge/underpayment policies, and the authenticated customer/admin checks above before relying on the full live order flow.
 
 ### Connecting arrie.store
 
@@ -103,4 +103,23 @@ The intended production domain is `arrie.store`; the website name is Arrie Store
 6. In Supabase Authentication URL configuration, use `https://arrie.store` as the production Site URL and allow `https://arrie.store/auth/callback` for password recovery. Keep localhost URLs allowed for local development.
 7. Verify `https://arrie.store` and password recovery after the switch. The domain switch routes live visitors to the new app.
 
-These instructions are a deployment plan. This rename does not publish code, move the domain, or change the hosted Supabase Site URL.
+### Current deployment — October 13, 2026
+
+- GitHub source: `https://github.com/b4didot/arrishop`, production branch `main`.
+- Vercel team/project: `brightly-os-projects/arrie-store` (`prj_t1CGwPdyilLsYbv8Bkty0lrYGbqO`), Next.js, Node.js 24.x, repository root.
+- Production domain: `https://arrie.store`; `https://www.arrie.store` redirects to it with HTTP 308. Both domains were moved from `pinc-glow` after the destination deployment was verified. Moving `www.arrie.store` also moved its existing apex redirect; the final redirect direction was then updated to use the apex as canonical.
+- Fallback Vercel URL: `https://arrie-store.vercel.app`. The original `pinc-glow` project remains available as a fallback source; it no longer owns these two custom domain assignments.
+- Production variables contain the configured Supabase URL/public key and `NEXT_PUBLIC_SITE_URL=https://arrie.store`. Preview uses the same backend with `NEXT_PUBLIC_SITE_URL=https://arrie-store.vercel.app`. Configure a separate backend/origin if isolated preview data or per-deployment recovery is needed.
+- Supabase Site URL is `https://arrie.store`. Redirect allowlist includes the apex, www, and fallback Vercel `/auth/callback` URLs plus both localhost callback URLs. Email confirmation remains disabled.
+- The hosted production build succeeded. Eight desktop/mobile guest browser checks passed against both the generated Vercel hostname and the final custom domain. Public product photos render correctly. Tests did not create real orders, review real payments, or send recovery emails.
+- `.vercelignore` excludes environment files, runtime output, local traces, and development-only directories from CLI uploads. `.vercel/` metadata and CLI-written `.env.local` credentials remain ignored by Git.
+
+To check the live site with the existing browser suite:
+
+```powershell
+$env:PLAYWRIGHT_BASE_URL = 'https://arrie.store'
+npm run test:browser
+Remove-Item Env:PLAYWRIGHT_BASE_URL
+```
+
+Future changes deploy automatically when pushed to `main`. `vercel deploy --prod --scope brightly-os-projects` is also available from the linked checkout. Reconfirm domain ownership/project links before changes that move production traffic.
