@@ -76,11 +76,12 @@ img { max-width: 100%; }
 .pink-dot { color: #ce8b71; }.muted { color: var(--muted); }.small { font-size: 12px; }
 .collection-label { font-size: 12px; display: flex; align-items: center; gap: 10px; background: #f4ebdf; border: 1px solid #e4d5c4; padding: 9px 14px; border-radius: 99px; white-space: nowrap; }.collection-label span { font-size: 10px; background: #fff8ed; border-radius: 50%; width: 20px; text-align: center; }
 .product-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 22px; }
-.product-card { background: #fffdf9; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+.product-card { display: flex; flex-direction: column; background: #fffdf9; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+.product-card > .product-image { flex-shrink: 0; }
 .product-image { aspect-ratio: 1 / 1.06; background: #f2eae1; position: relative; display: grid; place-items: center; color: #ac8e7c; }
 .product-image img { object-fit: cover; }
-.product-body { padding: 19px; }.product-body h3 { font-size: 16px; margin-bottom: 9px; }.product-body > p { font-size: 12px; color: var(--muted); line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
-.product-bottom { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }.product-bottom > strong { font-size: 16px; padding-top: 9px; white-space: nowrap; }.product-add { max-width: 160px; }
+.product-body { display: flex; flex-direction: column; flex: 1; padding: 19px; }.product-body h3 { font-size: 16px; margin-bottom: 9px; }.product-body > p { font-size: 12px; color: var(--muted); line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.product-bottom { display: flex; justify-content: space-between; align-items: flex-start; margin-top: auto; gap: 10px; }.product-bottom > strong { font-size: 16px; padding-top: 9px; white-space: nowrap; }.product-add { max-width: 160px; }
 .product-add .message { font-size: 11px; padding: 7px; margin: 8px 0 0; }
 .badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; font-size: 11px; font-weight: 650; border-radius: 99px; white-space: nowrap; background: #ece6de; }
 .stock-badge { position: absolute; top: 14px; left: 14px; background: #fff9f0; color: #736357; }
