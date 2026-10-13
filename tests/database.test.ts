@@ -55,6 +55,7 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
   await db.exec(await readFile(new URL("../supabase/migrations/202610130004_delivery_address_parts.sql", import.meta.url), "utf8"));
   await db.exec(await readFile(new URL("../supabase/migrations/202610130007_delivery_carriers.sql", import.meta.url), "utf8"));
   await db.exec(await readFile(new URL("../supabase/migrations/202610130008_social_names.sql", import.meta.url), "utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/202610130009_required_social_nickname.sql", import.meta.url), "utf8"));
   assert.equal((await db.query<{social_name:string}>("select social_name from public.profiles where id=$1", [b])).rows[0].social_name, "");
   const address = { street_address: "12 Main Street", subdivision: "", barangay: "San Jose", city: "Quezon City", province: "Metro Manila", zip_code: "0123" };
   await t.test("legacy addresses are preserved, incomplete checkout is blocked, and structured signup populates the profile", async () => {
@@ -69,6 +70,8 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     assert.equal((await db.query<{social_name:string}>("select social_name from public.profiles where id='99999999-9999-4999-8999-999999999999'")).rows[0].social_name, "Sweet Baker");
     await db.query("delete from auth.users where id='99999999-9999-4999-8999-999999999999'");
     await db.query("update public.profiles set delivery_address_parts=$1::jsonb", [JSON.stringify(address)]);
+    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [a]);
+    await assert.rejects(db.query("select public.checkout($1,'lalamove')", [key]), /Social\/Nickname/);
     await db.query("update public.profiles set social_name='Bakes by Arri' where id=$1", [a]);
   });
   const asUser = async (id: string) => {
@@ -181,6 +184,8 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     await db.query("select public.set_cart_item($1,1)", [product]);
     await assert.rejects(db.query("select public.checkout($1,$2)", [crypto.randomUUID(), "unknown"]), /choose J&T or Lalamove/);
     await assert.rejects(db.query("select public.checkout($1)", [crypto.randomUUID()]), /choose a delivery option/);
+    await assert.rejects(db.query("select public.checkout($1,'jnt')", [crypto.randomUUID()]), /Social\/Nickname/);
+    await db.query("update public.profiles set social_name=$1 where id=$2", ["B's Baking", b]);
     const requestKey = crypto.randomUUID();
     const placed = String(await scalar("select public.checkout($1,$2) as value", [requestKey, "jnt"]));
     assert.equal(await scalar("select public.checkout($1,$2) as value", [requestKey, "jnt"]), placed);

@@ -4,7 +4,7 @@ The implemented schema is in `supabase/migrations/202610130001_initial.sql`. It 
 
 | Table | Minimal fields and constraints |
 | --- | --- |
-| `profiles` | `id` references auth.users, full_name, optional social_name, phone, delivery_address, created_at, updated_at; email owned by Auth |
+| `profiles` | `id` references auth.users, full_name, social_name (required before checkout), phone, delivery_address, created_at, updated_at; email owned by Auth |
 | `admin_users` | user_id references auth.users; managed only through trusted provisioning |
 | `products` | id, title, description, price_centavos >= 0, image_path, out_of_stock, archived_at, created_at, updated_at |
 | `cart_items` | customer_id, product_id, quantity > 0; unique customer/product |
@@ -85,3 +85,7 @@ Migration `202610130007` was applied to the linked Supabase project on October 1
 Migration `202610130008_social_names.sql` adds optional social names to profiles and order snapshots. Both default to an empty string for existing records and have a 120-character limit. The signup trigger copies and trims the name from Auth metadata; checkout snapshots the current profile value. Existing orders remain blank rather than inferring a name from a later profile edit. Existing profile RLS and order read grants still apply.
 
 Migration `202610130008` was applied to the linked Supabase project on October 13, 2026; remote schema verification confirmed both new columns and their blank defaults.
+
+Migration `202610130009_required_social_nickname.sql` requires a nonblank profile `social_name` inside the checkout RPC before any new order is created. Legacy profiles and orders retain blank values until the customer updates the profile; committed checkout retries still return the existing order. This keeps the synthetic Auth check compatible, since its temporary account never orders. The existing profile and order columns and RLS policies are unchanged.
+
+Migration `202610130009` was applied to the linked Supabase project on October 13, 2026 before the matching application deployment.
