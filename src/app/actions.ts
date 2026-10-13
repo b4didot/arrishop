@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { centavos, deliveryAddress, imageFile, password, quantity, safeNext, text, uuid } from "@/lib/validation";
+import { deliveryCarrier } from "@/lib/delivery";
 import type { ActionState } from "@/types";
 
 function failure(error: unknown): ActionState {
@@ -102,7 +103,7 @@ export async function placeOrder(_: ActionState, form: FormData): Promise<Action
   let orderId: string;
   try {
     const client = await createClient();
-    const { data, error } = await client.rpc("checkout", { request_key: uuid(form.get("checkout_key")) });
+    const { data, error } = await client.rpc("checkout", { request_key: uuid(form.get("checkout_key")), selected_carrier: deliveryCarrier(form.get("delivery_carrier")) });
     dbCheck(error); orderId = uuid(data); revalidatePath("/", "layout");
   } catch (error) { return failure(error); }
   redirect(`/orders/${orderId}?placed=1`);

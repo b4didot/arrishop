@@ -154,3 +154,14 @@ img { max-width: 100%; }
 .order-table .status-link:hover { opacity: .8; }
 @media (max-width: 1100px) { .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .filter-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .filter-form { grid-template-columns: minmax(0, 1fr); } }
+
+.carrier-choices { border: 0; padding: 0; margin: 18px 0; min-width: 0; }
+.carrier-choices legend { font-weight: 650; margin-bottom: 10px; }
+.carrier-choice { display: flex; align-items: center; gap: 10px; padding: 11px; margin-bottom: 9px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.carrier-choice.selected { border-color: #b77c65; background: #fff5ed; }
+.carrier-choice input { accent-color: #a66f59; flex: none; }
+.carrier-choice > span:last-child { min-width: 0; }
+.carrier-choice strong, .carrier-choice small { display: block; }
+.carrier-choice small { color: var(--muted); line-height: 1.45; margin-top: 2px; }
+.carrier-mark { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 7px; color: white; font-weight: 800; font-size: 12px; }
+.carrier-jnt { background: #e62222; }.carrier-lalamove { background: #f47b20; font-size: 18px; font-style: italic; }

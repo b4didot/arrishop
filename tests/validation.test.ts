@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { deliveryCarrier, shippingFee } from "../src/lib/delivery.ts";
 import { centavos, deliveryAddress, imageFile, password, quantity, safeNext, text, uuid } from "../src/lib/validation.ts";
 
 test("money parsing preserves exact centavos and rejects tampered amounts", () => {
@@ -53,4 +54,10 @@ test("delivery fields are required, optional landmark is preserved, and ZIP keep
   for (const zip of ["123","12345","12a4","1e03"]) { form.set("zip_code",zip); assert.throws(() => deliveryAddress(form)); }
   form.set("zip_code","0123"); form.set("subdivision","Near the church");
   assert.equal(deliveryAddress(form).delivery_address_parts.subdivision,"Near the church");
+});
+
+test("delivery carrier pricing rejects missing and forged choices", () => {
+  assert.equal(shippingFee(deliveryCarrier("jnt")), 9900);
+  assert.equal(shippingFee(deliveryCarrier("lalamove")), 0);
+  for (const input of ["", "JNT", "free", null]) assert.throws(() => deliveryCarrier(input));
 });

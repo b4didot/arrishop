@@ -132,6 +132,8 @@ Product galleries require migration 202610130002_product_photos.sql. Existing ph
 
 Apply 202610130004_delivery_address_parts.sql before testing the new registration/account flows. Existing accounts must enter the structured delivery fields in My account before checkout. Coordinate production code rollout with this migration: the old live account form cannot populate the structured address.
 
+Apply `202610130007_delivery_carriers.sql` before deploying carrier selection. It adds order carrier and shipping snapshots without changing existing orders. New checkout requests require a carrier; the one-argument RPC remains available only for retries of already placed orders.
+
 The daily synthetic Auth check uses Supabase Cron and `pg_net`, not Vercel Cron. After applying migration `202610130005_synthetic_auth_check.sql`, configure the single row in `private.synthetic_auth_config` with the project URL and publishable key from `.env.local` through a trusted SQL session. Keep the key out of the migration and Git. Confirm the two jobs are active in `cron.job` and inspect `cron.job_run_details` and `net._http_response` if a signup fails. The signup is scheduled for 12:00 Philippine time; cleanup runs every 30 seconds and removes a marked account once it is at least two minutes old. No service-role key is needed by the app or scheduler.
 
 The linked production project has both jobs and the private configuration active. The public Auth signup and automated cleanup were verified with a temporary account on October 13, 2026. To reproduce on a new project, apply migration `202610130006_synthetic_auth_password_fix.sql` as well, then set that project's own URL and publishable key in the private configuration.

@@ -20,6 +20,8 @@ Email confirmation is disabled in Supabase Auth. `signUp` returns a session for 
 
 Checkout keys are retained in browser session storage per customer/cart fingerprint until the placed-order page clears them. The database unique constraint and RPC handle retries independently of the disabled submit button. Receipt upload paths use a stable submission key per form, and finalization accepts a retry for an already committed path.
 
+CheckoutForm owns the transient carrier choice and shows the resulting payment estimate. Its retry key also includes the carrier. The checkout RPC validates the choice and calculates shipping from server-owned policy, then stores the carrier and shipping charge on the order. Customer and administrator details render the same persisted order summary, so later policy changes cannot alter placed orders.
+
 No service-role key is required by the application. Initial schema and administrator provisioning are trusted SQL Editor tasks. Failed receipt finalization can leave an orphaned private upload; the application does not delete receipts, preventing a delete/finalization race. Any maintenance cleanup must be a separate trusted operation after confirming the file is unreferenced.
 
 The storefront leads directly with the live baked-goods catalog and retains its pastel visual style. Bakery-themed Lucide icons decorate the brand, placeholders, and auth page. Missing database configuration and empty catalogs show friendly unavailable/empty states without fabricated products or orders.

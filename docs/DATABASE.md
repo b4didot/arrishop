@@ -8,7 +8,7 @@ The implemented schema is in `supabase/migrations/202610130001_initial.sql`. It 
 | `admin_users` | user_id references auth.users; managed only through trusted provisioning |
 | `products` | id, title, description, price_centavos >= 0, image_path, out_of_stock, archived_at, created_at, updated_at |
 | `cart_items` | customer_id, product_id, quantity > 0; unique customer/product |
-| `orders` | id, unique order_number, customer_id, checkout_key, status, total_centavos >= 0, customer_name/phone/address snapshots, created_at, updated_at; unique customer/checkout_key |
+| `orders` | id, unique order_number, customer_id, checkout_key, status, total_centavos >= 0, delivery_carrier, shipping_fee_centavos, customer_name/phone/address snapshots, created_at, updated_at; unique customer/checkout_key |
 | `order_items` | id, order_id, product_id, title snapshot, unit_price_centavos >= 0, quantity > 0; line totals derived from snapshots |
 | `payment_submissions` | id, order_id, unique receipt_path, submitted_at, decision pending/confirmed/rejected, reviewed_by, reviewed_at, amount_received_centavos, rejection_reason; rejected requires nonblank reason; confirmed requires amount |
 | `order_admin_details` | order_id primary key, notes, updated_at; administrator-only |
@@ -46,7 +46,7 @@ Both buckets limit files to 5 MB and JPEG/PNG/WebP. Server actions also inspect 
 
 - `is_admin()` and `has_cart_product(uuid)` are read helpers; administrator membership itself has no public table grants.
 - `set_cart_item(uuid, integer, boolean)` is the sole application cart mutation. Zero removes an item; quantities range from 1 to 99, with up to 100 different products per cart.
-- `checkout(uuid)` takes only an idempotency key, not prices or totals. It requires complete delivery details and a configured QR. It returns an existing committed order before checking the now-empty cart on a retry.
+- `checkout(uuid, text)` takes an idempotency key and a required carrier (`jnt` or `lalamove`), not prices or totals. It requires complete delivery details and a configured QR. It calculates the product subtotal and adds 9900 centavos for J&T or zero for Lalamove, then snapshots the carrier and shipping charge on the order. It returns an existing committed order before checking the now-empty cart on a retry. The old `checkout(uuid)` signature supports committed retries only and rejects new orders until the client selects a carrier.
 - `submit_receipt(uuid, text)` records a stored receipt and moves the order to verifying_payment atomically.
 - `review_payment(uuid, uuid, boolean, bigint, text)` requires an administrator, a current pending receipt, a recorded amount covering the total for confirmation, or a nonblank rejection reason.
 - `advance_order(uuid, text, text)` permits only defined fulfillment transitions and cancellation with a nonblank reason.
@@ -77,3 +77,7 @@ This migration was applied to the linked Supabase project on October 13, 2026 wi
 Migration `202610130005_synthetic_auth_check.sql` adds a private configuration table and two restricted functions, enables `pg_cron` and `pg_net`, and schedules the synthetic signup and cleanup jobs. The signup job uses the same public `/auth/v1/signup` HTTP API as a customer, with randomized credentials and metadata marking it as synthetic. The account receives only a normal customer profile; it never creates a cart or order. Cleanup requires the synthetic email pattern, marker, age of at least two minutes, and no orders. The 30-second polling interval means deletion normally occurs within 30 seconds after the two-minute age threshold. The daily schedule is 04:00 UTC, equal to 12:00 Philippine time year-round.
 
 Migrations `202610130005` and `202610130006` were applied to the linked project. `202610130006` uses built-in `gen_random_uuid()` for the random password because the project's `pgcrypto` byte-generation function was unavailable on the restricted function search path. A manual live invocation returned Auth HTTP 200, created the marked customer/profile, and the scheduled cleanup deleted both after two minutes; the two real administrator accounts remained.
+
+Migration `202610130007_delivery_carriers.sql` adds `orders.delivery_carrier` and `orders.shipping_fee_centavos`. Legacy orders retain a null carrier and zero fee. A constraint permits only J&T with 9900 centavos or Lalamove with zero for new carrier-tagged orders, and requires totals to cover the shipping charge. The checkout RPC calculates the charge from the selected carrier inside the transaction, so submitted client totals cannot change it. Lalamove's external shipping fee is intentionally not part of the shop order total. Product rows remain in `order_items`; shipping is an order-level charge line rendered from the saved snapshot.
+
+Migration `202610130007` was applied to the linked Supabase project on October 13, 2026 before the matching application deployment.

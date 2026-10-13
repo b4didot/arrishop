@@ -53,11 +53,12 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     assert.equal((await db.query<{image_paths:string[]}>("select image_paths from public.products where id=$1", [product])).rows[0].image_paths.length, 3);
   });
   await db.exec(await readFile(new URL("../supabase/migrations/202610130004_delivery_address_parts.sql", import.meta.url), "utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/202610130007_delivery_carriers.sql", import.meta.url), "utf8"));
   const address = { street_address: "12 Main Street", subdivision: "", barangay: "San Jose", city: "Quezon City", province: "Metro Manila", zip_code: "0123" };
   await t.test("legacy addresses are preserved, incomplete checkout is blocked, and structured signup populates the profile", async () => {
     assert.equal((await db.query<{delivery_address:string}>("select delivery_address from public.profiles where id=$1", [a])).rows[0].delivery_address, "Manila");
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [a]);
-    await assert.rejects(db.query("select public.checkout($1)", [key]), /required delivery address fields/);
+    await assert.rejects(db.query("select public.checkout($1,'lalamove')", [key]), /required delivery address fields/);
     for (const invalid of [{...address, zip_code:"12345"}, {...address, barangay:""}, {...address, zip_code:1234}, {...address, subdivision:null}]) {
       await assert.rejects(db.query("update public.profiles set delivery_address_parts=$1::jsonb where id=$2", [JSON.stringify(invalid), a]), /profile_delivery_parts_valid/);
     }
@@ -75,14 +76,14 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
   await t.test("public catalog works; anonymous writes and admin promotion are denied", async () => {
     await db.exec("set role anon");
     assert.equal(await scalar("select count(*)::integer as value from public.products"), 1);
-    await assert.rejects(db.query("select public.checkout($1)", [key]), /permission denied/);
+    await assert.rejects(db.query("select public.checkout($1,'lalamove')", [key]), /permission denied/);
     await asUser(a);
     await assert.rejects(db.query("insert into public.admin_users values($1)", [a]), /permission denied/);
     assert.equal(await scalar("select public.is_admin() as value"), false);
   });
   await t.test("checkout requires payment setup and computes a server snapshot", async () => {
     await db.query("select public.set_cart_item($1,2)", [product]);
-    await assert.rejects(db.query("select public.checkout($1)", [key]), /setting up payments/);
+    await assert.rejects(db.query("select public.checkout($1,'lalamove')", [key]), /setting up payments/);
     await asUser(admin);
     await db.query("update public.payment_settings set qr_path='payment/qr.png', updated_by=$1", [admin]);
     await asUser(a);
@@ -90,8 +91,8 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
   });
   let order: string;
   await t.test("duplicate checkout creates one order and stable snapshots", async () => {
-    order = String(await scalar("select public.checkout($1) as value", [key]));
-    assert.equal(await scalar("select public.checkout($1) as value", [key]), order);
+    order = String(await scalar("select public.checkout($1,'lalamove') as value", [key]));
+    assert.equal(await scalar("select public.checkout($1,'lalamove') as value", [key]), order);
     assert.equal(await scalar("select count(*)::integer as value from public.orders"), 1);
     assert.equal(String(await scalar("select total_centavos as value from public.orders")), "3998");
     assert.equal(await scalar("select count(*)::integer as value from public.cart_items"), 0);
@@ -166,6 +167,24 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     await asUser(a);
     await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [`${a}/${order}/third.png`]), /row-level security/);
   });
+  await t.test("J&T shipping is included in the stored payment total and Lalamove is separate", async () => {
+    await asUser(admin);
+    await db.query("update public.products set archived_at=null, out_of_stock=false where id=$1", [product]);
+    await asUser(b);
+    await db.query("select public.set_cart_item($1,1)", [product]);
+    await assert.rejects(db.query("select public.checkout($1,$2)", [crypto.randomUUID(), "unknown"]), /choose J&T or Lalamove/);
+    await assert.rejects(db.query("select public.checkout($1)", [crypto.randomUUID()]), /choose a delivery option/);
+    const requestKey = crypto.randomUUID();
+    const placed = String(await scalar("select public.checkout($1,$2) as value", [requestKey, "jnt"]));
+    assert.equal(await scalar("select public.checkout($1,$2) as value", [requestKey, "jnt"]), placed);
+    const saved = (await db.query<{delivery_carrier:string;shipping_fee_centavos:number;total_centavos:number}>("select delivery_carrier,shipping_fee_centavos,total_centavos from public.orders where id=$1", [placed])).rows[0];
+    assert.deepEqual(saved, { delivery_carrier: "jnt", shipping_fee_centavos: 9900, total_centavos: 19899 });
+    assert.equal(await scalar("select count(*)::integer as value from public.order_items where order_id=$1", [placed]), 1);
+    await assert.rejects(db.query("update public.orders set shipping_fee_centavos=0 where id=$1", [placed]), /permission denied/);
+    await asUser(admin);
+    assert.equal(await scalar("select delivery_carrier as value from public.orders where id=$1", [order]), "lalamove");
+    assert.equal(await scalar("select shipping_fee_centavos as value from public.orders where id=$1", [order]), 0);
+  });
   await t.test("unavailable products and invalid quantities are rejected", async () => {
     await asUser(admin);
     await db.query("update public.products set out_of_stock=true where id=$1", [product]);
@@ -181,7 +200,7 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     await asUser(a);
     // Owners can still see and remove an archived cart item.
     assert.equal(await scalar("select count(*)::integer as value from public.products"), 1);
-    await assert.rejects(db.query("select public.checkout($1)", [crypto.randomUUID()]), /no longer available/);
+    await assert.rejects(db.query("select public.checkout($1,'lalamove')", [crypto.randomUUID()]), /no longer available/);
     await db.query("select public.set_cart_item($1,0)", [product]);
     await db.exec("reset role"); await db.query("select set_config('request.jwt.claim.sub','',false)"); await db.exec("set role anon");
     assert.equal(await scalar("select count(*)::integer as value from public.products"), 0);

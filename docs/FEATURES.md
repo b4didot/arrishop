@@ -26,7 +26,7 @@ Money displays in Philippine Peso and dates in Philippine local time. Excluded f
 - Empty/unavailable catalogs display an honest coming-soon state. No demo products, fake receipts, or fake authenticated sessions are created.
 - Cart quantities range from 1 to 99 per product, with up to 100 different products. Removing an archived/unavailable cart item remains possible.
 - Checkout requires complete delivery details and a configured payment QR. It uses product prices from the database, ignores client totals, and clears the purchased cart atomically.
-- The displayed order total consists of items only; no delivery surcharge or tax policy has been supplied.
+- Checkout requires a carrier choice before the order is placed. J&T (JNT) adds a fixed ₱99 shipping line to the amount paid through the shop QR. Lalamove shipping is paid separately by the customer and is excluded from the shop payment total. The selected carrier and charge appear in customer and administrator order details.
 - Confirmation requires an actual received amount covering the order total. Underpayment must be rejected with a customer-visible explanation; receipt resubmission stays on the same order.
 - Administrators review a pending receipt before cancellation. Cancellation is permanent, requires a customer-visible reason, and does not initiate refunds.
 - Order history and administrator order lists paginate by 20. Admin overview shows up to ten oldest orders awaiting review; its link opens the full filtered list.
