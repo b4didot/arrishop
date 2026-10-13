@@ -38,3 +38,6 @@ Production is hosted on Vercel in `brightly-os-projects/arrie-store`, connected 
 
 
 ProductEditor owns draft photos and primary selection. Authenticated browser uploads go directly to Supabase Storage under administrator RLS, avoiding Vercel request limits; the shared loading overlay covers upload and save together. saveProduct validates administrator access, new path product IDs, signatures, and collection size. Uncertain saves retain staged files to avoid deleting committed assets. ProductGallery owns modal/index state and uses a native dialog for focus trapping, scroll locking, and focus restoration.
+
+
+AddressFields shares the registration/account inputs. The server deliveryAddress validator owns trimming, limits, required fields, and four-digit ZIP validation. Profiles store delivery_address_parts JSON alongside the readable delivery_address. A database trigger synchronizes the readable address; the signup trigger copies validated Auth metadata to the profile. The checkout RPC checks completeness and snapshots both structured and readable addresses atomically. Order delivery parts remain independent of subsequent profile edits.

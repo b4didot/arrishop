@@ -128,3 +128,6 @@ Future changes deploy automatically when pushed to `main`. `vercel deploy --prod
 
 
 Product galleries require migration 202610130002_product_photos.sql. Existing photos are backfilled automatically. Product uploads go directly from the authenticated browser to shop-images, up to 5 MB each; three photos do not require a larger Next.js or Vercel request limit.
+
+
+Apply 202610130004_delivery_address_parts.sql before testing the new registration/account flows. Existing accounts must enter the structured delivery fields in My account before checkout. Coordinate production code rollout with this migration: the old live account form cannot populate the structured address.

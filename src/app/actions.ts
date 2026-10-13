@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { centavos, imageFile, password, quantity, safeNext, text, uuid } from "@/lib/validation";
+import { centavos, deliveryAddress, imageFile, password, quantity, safeNext, text, uuid } from "@/lib/validation";
 import type { ActionState } from "@/types";
 
 function failure(error: unknown): ActionState {
@@ -38,7 +38,7 @@ export async function register(_: ActionState, form: FormData): Promise<ActionSt
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Please enter a valid email address.");
     const newPassword = password(form);
     const { data, error } = await client.auth.signUp({ email, password: newPassword, options: {
-      data: { full_name: text(form, "full_name", "your full name", 120), phone: text(form, "phone", "your phone number", 30), delivery_address: text(form, "delivery_address", "your delivery address", 1000) },
+      data: { full_name: text(form, "full_name", "your full name", 120), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) },
     } });
     if (error) return { error: "We couldn't create your account. Try again, or log in if you already have an account." };
     signedIn = Boolean(data.session);
@@ -74,7 +74,7 @@ export async function saveProfile(_: ActionState, form: FormData): Promise<Actio
   const user = await requireUser("/account");
   try {
     const client = await createClient();
-    const { error } = await client.from("profiles").update({ full_name: text(form, "full_name", "your full name", 120), phone: text(form, "phone", "your phone number", 30), delivery_address: text(form, "delivery_address", "your delivery address", 1000) }).eq("id", user.id).select("id").single();
+    const { error } = await client.from("profiles").update({ full_name: text(form, "full_name", "your full name", 120), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) }).eq("id", user.id).select("id").single();
     dbCheck(error); revalidatePath("/account"); revalidatePath("/checkout");
     return { success: "Your details are saved." };
   } catch (error) { return failure(error); }

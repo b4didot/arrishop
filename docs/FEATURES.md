@@ -43,3 +43,6 @@ Build, TypeScript, local database tests, and guest browser tests pass. Real emai
 Administrators can add, replace, or remove up to three product photos with immediate previews. Make primary chooses the storefront photo; Save product saves the selection. At least one photo is required. Customers click a photo to open a responsive viewer with side arrows and an X, without thumbnails. Keyboard arrows, Escape, and touch swipes work too.
 
 The customer photo viewer uses the viewport without a cream card. Photos retain their proportions and have rounded corners directly against the dimmed backdrop. Compact arrows sit outside the photo's left and right edges, and X sits above its top-right corner. Space for the controls keeps them visible on mobile without covering the photo.
+
+
+Registration and My account group six fields under Delivery address: Street Address, optional Subdivision / District / Landmark, Barangay, City / Municipality, Province / Region, and a required four-digit ZIP Code. ZIP codes are text so leading zeros are preserved. Checkout requires all mandatory fields; existing customers complete the new fields in My account without their previous address being guessed or discarded. Checkout and order details label each part for delivery booking. Existing orders retain their original address snapshots.

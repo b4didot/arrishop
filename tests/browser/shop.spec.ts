@@ -32,7 +32,13 @@ test("guests are redirected from customer and administrator routes", async ({ pa
 });
 test("registration and recovery forms have visible labels and native validation", async ({ page }, info) => {
   await page.goto("/register");
-  for (const label of ["Full name", "Email address", "Password", "Phone number", "Delivery address"]) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+  for (const label of ["Full name", "Email address", "Password", "Phone number", "Street Address", "Subdivision / District / Landmark", "Barangay", "City / Municipality", "Province / Region", "ZIP Code"]) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Street Address", { exact: true })).toHaveAttribute("placeholder", "House No., Unit, Block/Lot, Street");
+  expect(await page.getByLabel("Subdivision / District / Landmark", { exact: true }).evaluate((element: HTMLInputElement) => element.required)).toBe(false);
+  for (const label of ["Street Address", "Barangay", "City / Municipality", "Province / Region", "ZIP Code"]) expect(await page.getByLabel(label, {exact:true}).evaluate((element: HTMLInputElement) => element.required)).toBe(true);
+  const zip = page.getByLabel("ZIP Code", {exact:true});
+  await zip.fill("12a4"); expect(await zip.evaluate((element: HTMLInputElement) => element.validity.patternMismatch)).toBe(true);
+  await zip.fill("0123"); expect(await zip.evaluate((element: HTMLInputElement) => element.validity.valid)).toBe(true);
   await page.getByRole("button", { name: "Create account" }).click();
   await expect(page.getByLabel("Full name", { exact: true })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

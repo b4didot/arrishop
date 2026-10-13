@@ -45,3 +45,19 @@ export async function imageFile(form: FormData, key: string, required = true) {
   if (!detected || detected !== file.type) throw new Error("That file isn't a supported image. Please upload a JPG, PNG, or WebP.");
   return { file, bytes, type: detected, extension: jpeg ? "jpg" : png ? "png" : "webp" };
 }
+
+export function deliveryAddress(form: FormData) {
+  const address = {
+    street_address: text(form, "street_address", "your street address", 300),
+    subdivision: text(form, "subdivision", "your subdivision, district, or landmark", 200, 0),
+    barangay: text(form, "barangay", "your barangay", 100),
+    city: text(form, "city", "your city or municipality", 100),
+    province: text(form, "province", "your province or region", 100),
+    zip_code: text(form, "zip_code", "your ZIP code", 4),
+  };
+  if (!/^[0-9]{4}$/.test(address.zip_code)) throw new Error("Enter a 4-digit ZIP code.");
+  return { delivery_address_parts: address, delivery_address: [address.street_address, address.subdivision, address.barangay, address.city, address.province, address.zip_code].filter(Boolean).join(", ") };
+}
+export function completeAddress(address: { street_address?: string; barangay?: string; city?: string; province?: string; zip_code?: string } | undefined): boolean {
+  return Boolean(address?.street_address?.trim() && address.barangay?.trim() && address.city?.trim() && address.province?.trim() && /^[0-9]{4}$/.test(address.zip_code ?? ""));
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { centavos, imageFile, password, quantity, safeNext, text, uuid } from "../src/lib/validation.ts";
+import { centavos, deliveryAddress, imageFile, password, quantity, safeNext, text, uuid } from "../src/lib/validation.ts";
 
 test("money parsing preserves exact centavos and rejects tampered amounts", () => {
   assert.equal(centavos("19.99"), 1999);
@@ -39,4 +39,18 @@ test("upload validation checks bytes as well as MIME labels", async () => {
   data.set("image", new File([new Uint8Array(5 * 1024 * 1024 + 1)], "huge.jpg", { type: "image/jpeg" }));
   await assert.rejects(imageFile(data, "image"), /5 MB/);
   assert.equal(await imageFile(new FormData(), "image", false), null);
+});
+
+test("delivery fields are required, optional landmark is preserved, and ZIP keeps leading zeros", () => {
+  const values = {street_address:" 12 Main Street ", subdivision:"", barangay:"San Jose", city:"Quezon City", province:"Metro Manila", zip_code:"0123"};
+  const form = new FormData(); Object.entries(values).forEach(([key,value]) => form.set(key,value));
+  const result = deliveryAddress(form);
+  assert.equal(result.delivery_address_parts.zip_code, "0123");
+  assert.equal(result.delivery_address, "12 Main Street, San Jose, Quezon City, Metro Manila, 0123");
+  for (const field of ["street_address","barangay","city","province","zip_code"]) {
+    form.set(field, ""); assert.throws(() => deliveryAddress(form)); form.set(field, values[field as keyof typeof values]);
+  }
+  for (const zip of ["123","12345","12a4","1e03"]) { form.set("zip_code",zip); assert.throws(() => deliveryAddress(form)); }
+  form.set("zip_code","0123"); form.set("subdivision","Near the church");
+  assert.equal(deliveryAddress(form).delivery_address_parts.subdivision,"Near the church");
 });

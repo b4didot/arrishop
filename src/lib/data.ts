@@ -13,7 +13,7 @@ export async function getCart(userId: string) {
 }
 export async function getProfile(userId: string) {
   const client = await createClient();
-  const { data, error } = await client.from("profiles").select("id,full_name,phone,delivery_address").eq("id", userId).maybeSingle();
+  const { data, error } = await client.from("profiles").select("*").eq("id", userId).maybeSingle();
   if (error) throw new Error("We couldn't load your details. Please try again.");
   return data as Profile | null;
 }
