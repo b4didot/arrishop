@@ -56,6 +56,7 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
   await db.exec(await readFile(new URL("../supabase/migrations/202610130007_delivery_carriers.sql", import.meta.url), "utf8"));
   await db.exec(await readFile(new URL("../supabase/migrations/202610130008_social_names.sql", import.meta.url), "utf8"));
   await db.exec(await readFile(new URL("../supabase/migrations/202610130009_required_social_nickname.sql", import.meta.url), "utf8"));
+  await db.exec(await readFile(new URL("../supabase/migrations/202610130010_receipt_photos.sql", import.meta.url), "utf8"));
   assert.equal((await db.query<{social_name:string}>("select social_name from public.profiles where id=$1", [b])).rows[0].social_name, "");
   const address = { street_address: "12 Main Street", subdivision: "", barangay: "San Jose", city: "Quezon City", province: "Metro Manila", zip_code: "0123" };
   await t.test("legacy addresses are preserved, incomplete checkout is blocked, and structured signup populates the profile", async () => {
@@ -130,22 +131,30 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     await assert.rejects(db.query("insert into public.order_admin_details(order_id,notes) values($1,'Hacked')", [order]), /row-level security/);
   });
   const firstPath = () => `${a}/${order}/first.png`;
+  const extraPath = () => `${a}/${order}/extra.png`;
   const secondPath = () => `${a}/${order}/second.png`;
   let firstSubmission: string;
   await t.test("receipts enforce ownership, evidence retention, and submission idempotency", async () => {
     await asUser(b);
     await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [firstPath()]), /row-level security/);
     await asUser(a);
-    await assert.rejects(db.query("select public.submit_receipt($1,$2)", [order, firstPath()]), /upload your receipt first/);
+    await assert.rejects(db.query("select public.submit_receipt($1,$2)", [order, firstPath()]), /upload each receipt photo first/);
     await db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [firstPath()]);
-    await db.query("select public.submit_receipt($1,$2)", [order, firstPath()]);
-    await db.query("select public.submit_receipt($1,$2)", [order, firstPath()]);
+    await assert.rejects(db.query("select public.submit_receipt($1,$2,$3)", [order, firstPath(), firstPath()]), /different receipt photos/);
+    await assert.rejects(db.query("select public.submit_receipt($1,$2,$3)", [order, firstPath(), extraPath()]), /upload each receipt photo first/);
+    await db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)", [extraPath()]);
+    await db.query("select public.submit_receipt($1,$2,$3)", [order, firstPath(), extraPath()]);
+    await db.query("select public.submit_receipt($1,$2,$3)", [order, firstPath(), extraPath()]);
+    await assert.rejects(db.query("select public.submit_receipt($1,$2)", [order, firstPath()]), /different photos/);
     assert.equal(await scalar("select status as value from public.orders"), "verifying_payment");
     assert.equal(await scalar("select count(*)::integer as value from public.payment_submissions"), 1);
+    assert.deepEqual(await scalar("select receipt_paths as value from public.payment_submissions"), [firstPath(), extraPath()]);
+    assert.equal(await scalar("select public.receipt_read_allowed($1) as value", [extraPath()]), true);
     assert.equal((await db.query("delete from storage.objects where name=$1 returning id", [firstPath()])).rows.length, 0);
     assert.equal((await db.query("update storage.objects set name='overwritten' where name=$1 returning id", [firstPath()])).rows.length, 0);
     await asUser(b);
     assert.equal(await scalar("select count(*)::integer as value from storage.objects where bucket_id='receipts'"), 0);
+    assert.equal(await scalar("select public.receipt_read_allowed($1) as value", [extraPath()]), false);
     await asUser(admin);
     firstSubmission = String(await scalar("select id as value from public.payment_submissions where decision='pending'"));
   });
@@ -161,6 +170,7 @@ test("database checkout, RLS, receipt rejection/resubmission, and fulfillment", 
     await db.query("select public.submit_receipt($1,$2)", [order, secondPath()]);
     assert.equal(await scalar("select status as value from public.orders"), "verifying_payment");
     assert.equal(await scalar("select count(*)::integer as value from public.payment_submissions"), 2);
+    assert.deepEqual(await scalar("select receipt_paths as value from public.payment_submissions where receipt_path=$1", [secondPath()]), [secondPath()]);
     await assert.rejects(db.query("select public.review_payment($1,$2,true,3998)", [order, firstSubmission]), /Administrator access/);
     await asUser(admin);
     await assert.rejects(db.query("select public.review_payment($1,$2,true,3998)", [order, firstSubmission]), /already been reviewed/);

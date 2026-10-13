@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { centavos, deliveryAddress, imageFile, password, quantity, safeNext, text, uuid } from "@/lib/validation";
-import { receiptImageFile } from "@/lib/receipt-validation";
+import { receiptImageFile, receiptUploadPaths } from "@/lib/receipt-validation";
 import { deliveryCarrier } from "@/lib/delivery";
 import type { ActionState } from "@/types";
 
@@ -114,13 +114,18 @@ export async function uploadReceipt(_: ActionState, form: FormData): Promise<Act
   try {
     const id = uuid(form.get("order_id"));
     const submission = uuid(form.get("submission_key"));
-    const image = await receiptImageFile(form);
-    const path = `${user.id}/${id}/${submission}.${image.extension}`;
+    const paths = receiptUploadPaths(form.get("receipt_paths"), user.id, id, submission);
     const client = await createClient();
-    const { error: uploadError } = await client.storage.from("receipts").upload(path, image.bytes, { contentType: image.type, upsert: false });
-    if (uploadError && !["409", "400"].includes(String((uploadError as { statusCode?: string }).statusCode))) throw new Error("We couldn't upload your receipt. Please try again.");
-    if (uploadError && !/already exists|duplicate/i.test(uploadError.message)) throw new Error("We couldn't upload your receipt. Please refresh the order and try again.");
-    const { error } = await client.rpc("submit_receipt", { target_order: id, object_name: path });
+    for (const path of paths) {
+      const { data, error } = await client.storage.from("receipts").download(path);
+      if (error || !data) throw new Error("We couldn't read a receipt photo. Please try again.");
+      const extension = path.split(".").at(-1);
+      const type = extension === "jpg" ? "image/jpeg" : extension === "png" ? "image/png" : "image/webp";
+      const check = new FormData();
+      check.set("receipt", new File([await data.arrayBuffer()], "receipt", { type }));
+      await receiptImageFile(check);
+    }
+    const { error } = await client.rpc("submit_receipt", { target_order: id, object_name: paths[0], second_object_name: paths[1] ?? null });
     // Retain uploads on failure. Customers cannot delete evidence during or after finalization.
     dbCheck(error); refreshOrder(id);
     return { success: "Receipt submitted! We'll check your payment and update your order." };

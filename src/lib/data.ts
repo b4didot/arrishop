@@ -24,15 +24,18 @@ export async function getOrder(id: string) {
   if (!order) return null;
   const results = await Promise.all([
     client.from("order_items").select("id,title,unit_price_centavos,quantity").eq("order_id", id).order("id"),
-    client.from("payment_submissions").select("id,receipt_path,submitted_at,decision,amount_received_centavos,rejection_reason,reviewed_at").eq("order_id", id).order("submitted_at", { ascending: false }),
+    client.from("payment_submissions").select("id,receipt_path,receipt_paths,submitted_at,decision,amount_received_centavos,rejection_reason,reviewed_at").eq("order_id", id).order("submitted_at", { ascending: false }),
     client.from("order_status_history").select("id,previous_status,next_status,reason,created_at").eq("order_id", id).order("created_at", { ascending: false }),
     client.from("payment_settings").select("id,qr_path,instructions").eq("id", 1).maybeSingle(),
   ]);
   if (results.some((r) => r.error)) throw new Error("We couldn't load all order details. Please try again.");
   const payments = (results[1].data ?? []) as PaymentSubmission[];
   const receipts = await Promise.all(payments.map(async (p) => {
-    const { data } = await client.storage.from("receipts").createSignedUrl(p.receipt_path, 300);
-    return { ...p, url: data?.signedUrl ?? null };
+    const photos = await Promise.all(p.receipt_paths.map(async (path) => {
+      const { data } = await client.storage.from("receipts").createSignedUrl(path, 300);
+      return { path, url: data?.signedUrl ?? null };
+    }));
+    return { ...p, photos };
   }));
   return { order: order as Order, items: (results[0].data ?? []) as OrderItem[], payments: receipts, history: (results[2].data ?? []) as StatusEntry[], settings: results[3].data as PaymentSettings | null };
 }

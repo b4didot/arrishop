@@ -165,3 +165,5 @@ img { max-width: 100%; }
 .carrier-choice small { color: var(--muted); line-height: 1.45; margin-top: 2px; }
 .carrier-mark { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 7px; color: white; font-weight: 800; font-size: 12px; }
 .carrier-jnt { background: #e62222; }.carrier-lalamove { background: #f47b20; font-size: 18px; font-style: italic; }
+.receipt-photo { margin-top: 16px; }
+.receipt-photo .receipt-image { max-width: 100%; height: auto; }

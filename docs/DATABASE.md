@@ -10,7 +10,7 @@ The implemented schema is in `supabase/migrations/202610130001_initial.sql`. It 
 | `cart_items` | customer_id, product_id, quantity > 0; unique customer/product |
 | `orders` | id, unique order_number, customer_id, checkout_key, status, total_centavos >= 0, delivery_carrier, shipping_fee_centavos, customer_name/social_name/phone/address snapshots, created_at, updated_at; unique customer/checkout_key |
 | `order_items` | id, order_id, product_id, title snapshot, unit_price_centavos >= 0, quantity > 0; line totals derived from snapshots |
-| `payment_submissions` | id, order_id, unique receipt_path, submitted_at, decision pending/confirmed/rejected, reviewed_by, reviewed_at, amount_received_centavos, rejection_reason; rejected requires nonblank reason; confirmed requires amount |
+| `payment_submissions` | id, order_id, unique receipt_path (first photo), receipt_paths (one or two), submitted_at, decision pending/confirmed/rejected, reviewed_by, reviewed_at, amount_received_centavos, rejection_reason; rejected requires nonblank reason; confirmed requires amount |
 | `order_admin_details` | order_id primary key, notes, updated_at; administrator-only |
 | `order_status_history` | id, order_id, previous_status, next_status, actor_id, reason, created_at; append-only |
 | `payment_settings` | singleton id, qr_path, instructions, updated_by, updated_at |
@@ -38,7 +38,7 @@ Administrator cancellation is allowed from nonterminal statuses after any pendin
 
 The public `shop-images` bucket stores product photos and the payment QR, with administrator-only insert permissions. Images are versioned by unique paths; there is no overwrite policy. Administrators can delete only files unreferenced by products/settings.
 
-The private `receipts` bucket uses `customer UUID/order UUID/submission UUID.extension` paths. Upload policies check ownership and order state. Select policies allow the owning customer and administrators to read committed receipts, plus the owner to read their staged upload while the order accepts payment. Signed viewing URLs expire after five minutes. Neither customers nor administrators receive application update/delete policies for receipt files, including staged uploads; this prevents concurrent deletion during finalization. Failed finalization may leave private orphan files for a later trusted maintenance task. Do not delete files automatically when an RPC outcome is uncertain.
+The private `receipts` bucket uses `customer UUID/order UUID/submission UUID-photo number.extension` paths for new submissions. Upload policies check ownership and order state. Select policies allow the owning customer and administrators to read both committed receipt photos, plus the owner to read staged uploads while the order accepts payment. Signed viewing URLs expire after five minutes. Neither customers nor administrators receive application update/delete policies for receipt files, including staged uploads; this prevents concurrent deletion during finalization. Failed finalization may leave private orphan files for a later trusted maintenance task. Do not delete files automatically when an RPC outcome is uncertain.
 
 Both buckets limit files to 5 MB and JPEG/PNG/WebP. Server actions also inspect image signatures and MIME types. `submit_receipt` checks that the object exists before recording it. Duplicate finalization of the same order/path is idempotent.
 
@@ -47,7 +47,7 @@ Both buckets limit files to 5 MB and JPEG/PNG/WebP. Server actions also inspect 
 - `is_admin()` and `has_cart_product(uuid)` are read helpers; administrator membership itself has no public table grants.
 - `set_cart_item(uuid, integer, boolean)` is the sole application cart mutation. Zero removes an item; quantities range from 1 to 99, with up to 100 different products per cart.
 - `checkout(uuid, text)` takes an idempotency key and a required carrier (`jnt` or `lalamove`), not prices or totals. It requires complete delivery details and a configured QR. It calculates the product subtotal and adds 9900 centavos for J&T or zero for Lalamove, then snapshots the carrier and shipping charge on the order. It returns an existing committed order before checking the now-empty cart on a retry. The old `checkout(uuid)` signature supports committed retries only and rejects new orders until the client selects a carrier.
-- `submit_receipt(uuid, text)` records a stored receipt and moves the order to verifying_payment atomically.
+- `submit_receipt(uuid, text, text)` records one or two stored receipt photos and moves the order to verifying_payment atomically. The old two-argument form remains a single-photo compatibility wrapper.
 - `review_payment(uuid, uuid, boolean, bigint, text)` requires an administrator, a current pending receipt, a recorded amount covering the total for confirmation, or a nonblank rejection reason.
 - `advance_order(uuid, text, text)` permits only defined fulfillment transitions and cancellation with a nonblank reason.
 - Product prices are limited to 100,000,000 centavos (PHP 1,000,000); order/received amounts are bounded to safe integer totals.
@@ -89,3 +89,7 @@ Migration `202610130008` was applied to the linked Supabase project on October 1
 Migration `202610130009_required_social_nickname.sql` requires a nonblank profile `social_name` inside the checkout RPC before any new order is created. Legacy profiles and orders retain blank values until the customer updates the profile; committed checkout retries still return the existing order. This keeps the synthetic Auth check compatible, since its temporary account never orders. The existing profile and order columns and RLS policies are unchanged.
 
 Migration `202610130009` was applied to the linked Supabase project on October 13, 2026 before the matching application deployment.
+
+Migration `202610130010_receipt_photos.sql` adds `payment_submissions.receipt_paths`, backfilled from each existing `receipt_path`. The array must contain one or two distinct non-null paths, beginning with the legacy-compatible `receipt_path`. The updated read helper covers every photo in the array. The three-argument submission RPC checks ownership, distinct paths, and Storage existence for every photo before updating order status; its two-argument wrapper preserves single-photo clients during rollout. Receipt files stay private and immutable under the existing Storage policies.
+
+Migration `202610130010` was applied to the linked Supabase project on October 13, 2026. Remote verification found six existing submissions backfilled and no invalid photo counts.
