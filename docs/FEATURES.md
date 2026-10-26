@@ -79,3 +79,11 @@ Desktop page containers, navigation, and footer now use the available viewport w
 - Loading indicators use a dedicated rotation animation; reduced-motion mode uses slower, discrete steps rather than the global no-animation rule.
 - Add to cart uses a focused JSON request, returns the database-confirmed badge count, and invalidates cart/checkout data without rebuilding the current storefront. Authorization and cart validation still occur in the database.
 - The 21 older undated orders were assigned October 1, 2026, preserving existing timestamps and all orders with a concrete delivery date. The explicitly requested ARRI-00000028 and its four attached photos were removed after a private backup.
+
+## Administrator overrides and order archiving
+
+Every admin order detail now has Administrator controls for any of the seven statuses, an unrestricted delivery date, and archive/restore. Status and date overrides require a reason visible in the customer's timeline and confirmation; closed, full, past and short-notice dates are permitted. Stale submissions ask the admin to refresh. Changes have a separate administrator-only audit log.
+
+Setting a manual verification/payment/fulfillment status reserves a slot without inventing a receipt or confirmed amount. Existing receipt evidence and confirmed amounts remain intact. Leaving a pending review rejects it with the supplied reason when choosing Payment rejected; otherwise it is marked Superseded by admin status change. Replacement uploads remain possible in the normal payment-entry states. Cancellation releases capacity; reopening restores an existing reservation even if the date is now full.
+
+Archiving hides an order from the default admin overview, list and report. Order archive filters show archived records or both; each archived order can be restored. Customers retain their order history, and archiving keeps reservations and payment records. This order archive is separate from the timed chat archive. Reopening a completed order preserves its first completion timestamp and original chat retention deadline.

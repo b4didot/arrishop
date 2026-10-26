@@ -79,3 +79,26 @@ export async function submitOrderContent(_: ActionState, form: FormData): Promis
   check(error); refresh(id); return {success:kind==="review"?"Thank you! Your private review has been saved.":"Message sent."};
  } catch(error) {return fail(error);}
 }
+
+export async function adminUpdateOrder(_:ActionState,form:FormData):Promise<ActionState>{
+ await requireAdmin();
+ try{
+  const id=uuid(form.get("order_id"));
+  const kind=form.get("change_kind");
+  if(kind!=="status"&&kind!=="delivery_date"&&kind!=="archive")throw new Error("Choose a valid order change.");
+  const expected=text(form,"expected_updated_at","the current order version",60);
+  if(!Number.isFinite(Date.parse(expected)))throw new Error("Refresh the order and try again.");
+  const status=kind==="status"?text(form,"new_status","an order status",30):null;
+  const archive=kind==="archive"?form.get("archive_order"):null;
+  if(kind==="archive"&&archive!=="true"&&archive!=="false")throw new Error("Choose archive or restore.");
+  const client=await createClient();
+  const {error}=await client.rpc("admin_update_order",{
+   target_order:id,expected_updated_at:expected,change_kind:kind,
+   reason:text(form,"reason","a change reason",1000,kind==="archive"?0:1),
+   new_status:status,new_delivery_date:kind==="delivery_date"?date(form.get("new_delivery_date")):null,
+   archive_order:kind==="archive"?archive==="true":null,
+  });
+  check(error);refresh(id);
+  return {success:kind==="archive"?(archive==="true"?"Order archived.":"Order restored."):"Order updated. The change is recorded in its history."};
+ }catch(error){return fail(error);}
+}

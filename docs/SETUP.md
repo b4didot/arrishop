@@ -190,3 +190,11 @@ vercel.json selects Seoul (icn1), matching the existing Supabase database. Check
 Run npm test, npm run typecheck, npm run build, npm run test:workflows-ui, and the isolated regression configuration. Workflow checks cover a 60-row unpaginated report, width persistence and wrapping, notification acknowledgement, calendar hint placement, conversation spacing, three/five-photo uploads, and cart mutation without an RSC refresh. Spinner tests cover ordinary and reduced motion.
 
 The performance check uses a temporary customer account, normal page loads and cart operations, then removes that account and its cart. It creates no orders. Private credentials, removal backups, and measurement scripts remain ignored; never commit them. Compare multiple samples from the same client/location and distinguish cold starts from warm navigation.
+
+## Admin override rollout
+
+Apply 202610260001_admin_order_overrides.sql before deploying Administrator controls. No new secrets, services, or dependencies are needed. The migration adds compatible columns/functions and an audit table without changing existing order statuses, dates, payments, or archive state. Existing routes/RPCs remain compatible.
+
+Run npm test and npm run test:workflows-ui: database coverage includes authorization, stale writes, closed/full/past date overrides, pending receipt handling, archive reservation/history preservation and retention after reopening. Desktop/mobile browser coverage exercises status/date confirmations, the audit, archived list/report filters and restore. Verify npm run build before release. Test real overrides only on intended orders; production migration validation is read-only.
+
+Applied to the existing linked production Supabase project on October 26, 2026. Before/after snapshots match every pre-existing value across ten application tables, including 21 orders and 20 payment submissions; all new archive fields are NULL and override flags false. Private snapshots remain under ignored supabase/.temp/migration-backups/202610260001. Validation passed: 39 automated tests, 18 desktop/mobile workflow checks, 14 regression checks, type checking and the production build.

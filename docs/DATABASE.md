@@ -144,3 +144,11 @@ change_cart_item retains set_cart_item's validation and per-customer advisory lo
 Historical NULL delivery_date values were filled with 2026-10-01, with order_updated disabled only during that transaction to preserve commerce timestamps. Concrete existing dates were untouched.
 
 The owner's one-time request to remove ARRI-00000028 was handled separately from migrations. Its exact UUID was verified and its data/four photos backed up in ignored supabase/.temp/order-report-release. Related rows and the order were deleted in one guarded transaction; photos were removed through the Storage API. Verification found zero matching orders or attached files and 21 remaining orders. The order number sequence was preserved.
+
+## Migration 202610260001
+
+Adds orders.archived_at and delivery_date_override, an active-order index, and administrator-only order_admin_events with actor, action, reason, and before/after status/date/archive values. Authenticated callers can read the audit only through admin RLS; direct writes are revoked. admin_update_order checks administrator membership, locks the order, compares the original updated_at timestamp, takes the calendar lock and writes the update/history/audit atomically. Archive changes leave commerce and notification state intact.
+
+Status overrides allow all seven valid statuses. Pending payment submissions become rejected (with reason) or superseded (reviewer/time, no fabricated amount). Existing decided submissions are preserved. Manually entering verification/payment-confirmed/processing/completed reserves a slot. Existing reservations remain effective in any noncancelled state. Archiving never releases capacity.
+
+Explicit date overrides set a per-order approval flag, allowing subsequent receipt reservation on that approved closed/full/past date. A customer's normal unreserved date change still enforces availability and clears this flag. Availability includes reserved dates with no calendar configuration, treating them as closed. Same-status delivery history does not duplicate the delivery notification. Completion records the first completion only, so overrides cannot restart expired chat access.

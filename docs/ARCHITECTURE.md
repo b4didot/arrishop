@@ -77,3 +77,9 @@ The product AddToCart client calls POST /api/cart. The handler checks Origin and
 Receipt and conversation photo URLs are signed in batches. Report catalog/orders load concurrently, and availability uses explicit internal API chunks to avoid the response cap. The visible report has no pagination.
 
 Production functions are configured in Seoul (icn1), matching the Supabase ap-northeast-2 database. This removes repeated cross-Pacific server/database trips while static assets remain CDN-served. Private pages remain dynamic and private.
+
+## Admin order controls
+
+AdminOrderControls posts status, date or archive/restore to a separately authorized Server Action and admin_update_order RPC. Raw updated_at is passed unchanged to preserve PostgreSQL timestamp precision for optimistic concurrency. Status/date reasons appear in public history; archive notes and the full change audit stay administrator-only. Each operation has a confirmation. Normal payment review and quick fulfillment remain available.
+
+Active admin lists and overview query archived_at IS NULL; the orders page offers archived/all views and the report applies the same scope locally. Customer queries and capacity counts deliberately include archived orders. Receipt history renders superseded reviews distinctly from rejected payments. Reopening preserves the original completed_at used by database and Storage chat-retention policies.

@@ -203,4 +203,102 @@ test("delivery reservations, private reviews/chat, report counts, and retention"
   await assert.rejects(db.query("select public.change_cart_item($1,999,true)",[product]),/quantity/);
   const other=await scalar<{cart_count:number}>("select public.viewer_context() as value");assert.equal(other.cart_count,1);
  });
+
+ await db.exec("reset role");
+ await db.exec(await readFile(new URL("../supabase/migrations/202610260001_admin_order_overrides.sql",import.meta.url),"utf8"));
+ const version=(id:string)=>scalar<string>("select updated_at::text as value from public.orders where id=$1",[id]);
+ async function override(id:string,kind:string,reason:string,status:string|null=null,date:string|null=null,archive:boolean|null=null){
+  return db.query("select public.admin_update_order($1,$2,$3,$4,$5,$6,$7)",[id,await version(id),kind,reason,status,date,archive]);
+ }
+ await t.test("admin can reopen any status; authorization, validation and optimistic concurrency protect overrides",async()=>{
+  await asUser(a);
+  await assert.rejects(override(first,"status","Customer override","completed"),/Administrator/);
+  await asUser(admin);
+  await assert.rejects(override(first,"status","","completed"),/reason/);
+  await assert.rejects(override(first,"status","Bad status","invented"),/valid order status/);
+  const stale=await version(first);
+  await override(first,"status","Reopening cancelled preparation","completed");
+  assert.equal(await scalar("select status as value from public.orders where id=$1",[first]),"completed");
+  assert.equal(await scalar("select reserved as value from public.delivery_availability() where delivery_date=$1",[day]),1);
+  await assert.rejects(db.query("select public.admin_update_order($1,$2,'status','Stale edit','pending_payment')",[first,stale]),/Refresh/);
+  const completed=await scalar("select completed_at::text as value from public.orders where id=$1",[second]);
+  await override(second,"status","Reopen completed order","pending_payment");
+  await override(second,"status","Finish reopened order","completed");
+  assert.equal(await scalar("select completed_at::text as value from public.orders where id=$1",[second]),completed);
+  await assert.rejects(db.query("select public.submit_order_content($1,$2,'message','Revived chat','{}','{}')",[second,crypto.randomUUID()]),/archived/);
+  await asUser(a);assert.equal(await scalar("select count(*)::integer as value from public.order_admin_events"),0);
+  await assert.rejects(db.query("update public.orders set archived_at=now() where id=$1",[first]),/permission denied/);
+ });
+ await t.test("archive and restore preserve customer history, payments, status, dates and reserved capacity",async()=>{
+  await asUser(admin);
+  const before=await scalar("select row(status,delivery_date,slot_reserved_at)::text as value from public.orders where id=$1",[first]);
+  const notificationCount=await scalar("select count(*)::integer as value from public.order_notifications");
+  await override(first,"archive","Prepared records filed",null,null,true);
+  assert.ok(await scalar("select archived_at as value from public.orders where id=$1",[first]));
+  assert.equal(await scalar("select row(status,delivery_date,slot_reserved_at)::text as value from public.orders where id=$1",[first]),before);
+  assert.equal(await scalar("select count(*)::integer as value from public.order_notifications"),notificationCount);
+  assert.equal(await scalar("select count(*)::integer as value from public.orders where archived_at is null and id=$1",[first]),0);
+  assert.equal(await scalar("select reserved as value from public.delivery_availability() where delivery_date=$1",[day]),1);
+  await asUser(a);assert.equal(await scalar("select count(*)::integer as value from public.orders where id=$1",[first]),1);
+  await asUser(admin);await override(first,"archive","",null,null,false);
+  assert.equal(await scalar("select archived_at as value from public.orders where id=$1",[first]),null);
+  assert.equal(await scalar("select reason as value from public.order_admin_events where order_id=$1 and action='archive' order by created_at desc limit 1",[first]),"Restored by administrator");
+ });
+ let third:string;
+ await t.test("date overrides allow closed, full and past dates, notify once and permit receipts on explicitly approved dates",async()=>{
+  await asUser(admin);await db.query("update public.delivery_days set capacity=10,is_open=true where delivery_date=$1",[day]);
+  await asUser(a);third=String(await scalar("select public.checkout($1,'lalamove',$2) as value",[crypto.randomUUID(),day]));
+  await assert.rejects(db.query("select public.set_order_delivery($1,'2020-01-01')",[third]),/lead time/);
+  const before=await scalar<number>("select count(*)::integer as value from public.order_notifications where order_id=$1",[third]);
+  await asUser(admin);await override(third,"delivery_date","Customer agreed special delivery",null,"2020-01-01");
+  await asUser(a);
+  assert.equal(await scalar("select delivery_date_override as value from public.orders where id=$1",[third]),true);
+  assert.equal(await scalar("select count(*)::integer as value from public.order_notifications where order_id=$1",[third]),before!+1);
+  assert.equal(await scalar("select status as value from public.order_notifications where order_id=$1 and kind='order_update' order by created_at desc limit 1",[third]),null);
+  await db.query("select public.set_order_delivery($1,$2)",[third,day]);
+  assert.equal(await scalar("select delivery_date_override as value from public.orders where id=$1",[third]),false);
+  await asUser(admin);await override(third,"delivery_date","Approved past closed date",null,"2020-01-01");
+  await asUser(a);const path=receipt(a,third);await db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)",[path]);
+  await db.query("select public.submit_receipt($1,$2)",[third,path]);
+  assert.ok(await scalar("select slot_reserved_at as value from public.orders where id=$1",[third]));
+  const closed=(await db.query<{reserved:number;available:boolean}>("select reserved,available from public.delivery_availability() where delivery_date='2020-01-01'")).rows[0];
+  assert.deepEqual(closed,{reserved:1,available:false});
+  await asUser(admin);
+  await db.query("update public.delivery_days set capacity=1,is_open=false where delivery_date=$1",[nextDay]);
+  await override(third,"delivery_date","Approved full delivery date",null,nextDay);
+  assert.equal(await scalar("select reserved as value from public.delivery_availability() where delivery_date=$1",[nextDay]),2);
+  await override(third,"status","Cancelled special delivery","cancelled");
+  assert.equal(await scalar("select reserved as value from public.delivery_availability() where delivery_date=$1",[nextDay]),1);
+  await override(third,"status","Reinstate special delivery","verifying_payment");
+  assert.equal(await scalar("select reserved as value from public.delivery_availability() where delivery_date=$1",[nextDay]),2);
+ });
+ await t.test("an unpaid order can enter every manual status without a receipt and reserve its delivery slot",async()=>{
+  await asUser(a);await db.query("select public.set_cart_item($1,1)",[product]);
+  const unpaid=String(await scalar("select public.checkout($1,'lalamove',$2) as value",[crypto.randomUUID(),day]));
+  assert.equal(await scalar("select slot_reserved_at as value from public.orders where id=$1",[unpaid]),null);
+  await asUser(admin);
+  for(const status of ["completed","pending_payment","verifying_payment","payment_rejected","payment_confirmed","processing","cancelled"]){
+   await override(unpaid,"status","Manual preparation arrangement",status);
+   assert.equal(await scalar("select status as value from public.orders where id=$1",[unpaid]),status);
+   assert.ok(await scalar("select slot_reserved_at as value from public.orders where id=$1",[unpaid]));
+  }
+  assert.equal(await scalar("select count(*)::integer as value from public.payment_submissions where order_id=$1",[unpaid]),0);
+ });
+ await t.test("status overrides resolve pending reviews explicitly without fabricating money or losing receipt evidence",async()=>{
+  await asUser(admin);await override(third,"status","Return to payment entry","pending_payment");
+  assert.equal(await scalar("select decision as value from public.payment_submissions where order_id=$1",[third]),"superseded");
+  assert.equal(await scalar("select amount_received_centavos as value from public.payment_submissions where order_id=$1",[third]),null);
+  await asUser(a);const path=receipt(a,third).replace('receipt.png','replacement.png');
+  await db.query("insert into storage.objects(bucket_id,name) values('receipts',$1)",[path]);
+  await db.query("select public.submit_receipt($1,$2)",[third,path]);
+  await asUser(admin);await override(third,"status","Please upload a clearer receipt","payment_rejected");
+  assert.equal(await scalar("select rejection_reason as value from public.payment_submissions where order_id=$1 and decision='rejected'",[third]),"Please upload a clearer receipt");
+  await override(third,"status","Manual payment status","payment_confirmed");
+  assert.equal(await scalar("select count(*)::integer as value from public.payment_submissions where order_id=$1 and decision='confirmed'",[third]),0);
+  assert.equal(await scalar("select count(*)::integer as value from public.payment_submissions where order_id=$1",[third]),2);
+  assert.ok(await scalar("select count(*)::integer as value from public.order_admin_events where actor_id=$1 and previous_status is not null and next_status is not null",[admin]));
+  await db.exec("reset role;set role anon");
+  await assert.rejects(db.query("select public.admin_update_order($1,now(),'archive','',null,null,true)",[third]),/permission denied/);
+ });
+
 });

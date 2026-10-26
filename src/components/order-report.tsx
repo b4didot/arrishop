@@ -20,6 +20,7 @@ export function OrderReport({orders,products,userId}:{orders:ReportOrder[];produ
  const [loaded,setLoaded]=useState(false);
  const [search,setSearch]=useState("");const [from,setFrom]=useState("");const [to,setTo]=useState("");
  const [weekday,setWeekday]=useState("");const [scope,setScope]=useState("reserved");
+ const [archive,setArchive]=useState("active");
  const [sort,setSort]=useState({id:"date",descending:false});
  const [target,setTarget]=useState<ReportOrder|null>(null);
  const [editing,setEditing]=useState<{item:OrderItem;order:ReportOrder}|null>(null);
@@ -53,6 +54,8 @@ export function OrderReport({orders,products,userId}:{orders:ReportOrder[];produ
   switch(column) {case"date":return order.delivery_date??"";case"name":return order.customer_name;case"social":return order.customer_social_name;case"status":return statusLabels[order.status];case"address":return order.delivery_address;case"phone":return order.customer_phone;case"total":return order.total_centavos;default:return"";}
  }
  const filtered=orders.filter(order=>{
+  if(archive==="active" && order.archived_at)return false;
+  if(archive==="archived" && !order.archived_at)return false;
   if(scope==="reserved" && (!order.slot_reserved_at||order.status==="cancelled"))return false;
   const match=(order.customer_name+" "+order.customer_social_name+" "+order.order_number).toLowerCase();
   return match.includes(search.toLowerCase()) && (!from||!!order.delivery_date&&order.delivery_date>=from) && (!to||!!order.delivery_date&&order.delivery_date<=to)
@@ -82,6 +85,7 @@ export function OrderReport({orders,products,userId}:{orders:ReportOrder[];produ
  <Field label="Delivery through"><input type="date" value={to} onChange={e=>setTo(e.target.value)}/></Field>
  <Field label="Day"><select value={weekday} onChange={e=>setWeekday(e.target.value)}><option value="">Every day</option>{["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((day,i)=><option key={day} value={i}>{day}</option>)}</select></Field>
  <Field label="Orders"><select value={scope} onChange={e=>setScope(e.target.value)}><option value="reserved">Reserved slots</option><option value="all">All orders</option></select></Field>
+ <Field label="Order archive"><select aria-label="Order archive" value={archive} onChange={e=>setArchive(e.target.value)}><option value="active">Active orders</option><option value="archived">Archived orders</option><option value="all">Active and archived</option></select></Field>
  </div>
  <details><summary className="details-toggle">Customize columns</summary><p className="small muted">Move or hide columns below. Drag a header edge or use its width slider to resize. Preferences are saved on this device.</p><div className="column-controls">{ordered.map((column,index)=><div key={column.id}><label className="checkbox-field"><input type="checkbox" checked={!prefs.hidden.includes(column.id)} onChange={e=>setPrefs(current=>({...current,hidden:e.target.checked?current.hidden.filter(id=>id!==column.id):[...current.hidden,column.id]}))}/>{column.label}</label><button type="button" disabled={index===0} aria-label={`Move ${column.label} left`} onClick={()=>move(column.id,-1)}>←</button><button type="button" disabled={index===ordered.length-1} aria-label={`Move ${column.label} right`} onClick={()=>move(column.id,1)}>→</button><label className="column-width">Width<input type="range" min="72" max="800" step="8" aria-label={`Width of ${column.label}`} value={baseWidth(column.id)} onChange={event=>resize(column.id,Number(event.target.value))}/><output>{baseWidth(column.id)}px</output></label></div>)}</div><button type="button" className="button button-small button-outline" onClick={()=>setPrefs({order:[],hidden:[],zoom:100,widths:{}})}>Reset columns and size</button></details>
  </section>

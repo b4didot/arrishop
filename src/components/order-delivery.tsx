@@ -7,7 +7,7 @@ import { deliveryDate } from "@/lib/calendar";
 import type { DeliveryDay, Order } from "@/types";
 export function OrderDelivery({order,days,admin=false}:{order:Order;days:DeliveryDay[];admin?:boolean}) {
  const [date,setDate]=useState("");
- const canChange=!["completed","cancelled"].includes(order.status) && (!order.slot_reserved_at || (admin && !order.delivery_date));
+ const canChange=!admin && !["completed","cancelled"].includes(order.status) && !order.slot_reserved_at;
  return <section className="panel"><h2>Delivery day</h2><p><strong>{deliveryDate(order.delivery_date)}</strong></p>
  <p className="small muted">{order.status==="cancelled"?"This order is cancelled. Its slot has been released.":order.slot_reserved_at?"Your delivery slot is reserved.":"Your slot is reserved when you submit payment evidence. Check availability before paying."}</p>
  {canChange && <details open={!order.delivery_date}><summary className="details-toggle">Choose another delivery day</summary><ActionForm action={changeDeliveryDate}>
