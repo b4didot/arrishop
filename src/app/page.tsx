@@ -9,7 +9,7 @@ export default async function Home() {
   if (!unavailable) {
     try {
       const client = await createClient();
-      const { data, error } = await client.from("products").select("*").is("archived_at", null).order("created_at", { ascending: false });
+      const { data, error } = await client.from("products").select("*").is("archived_at", null).order("display_order").order("created_at", { ascending: false }).order("id");
       unavailable = Boolean(error); products = (data ?? []) as Product[];
     } catch { unavailable = true; }
   }

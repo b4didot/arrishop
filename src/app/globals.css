@@ -257,3 +257,21 @@ img { max-width: 100%; }
 
 /* Preserve a small progress cue when reduced motion disables general animations. */
 @media (prefers-reduced-motion: reduce) { .spin { animation:arrie-spinner-rotation 1.6s steps(8,end) infinite !important; } }
+
+/* Compact, aligned order controls with consistent touch targets. */
+.admin-order-controls > h2 { margin-bottom: 10px; }
+.admin-order-controls > details + details { border-top: 1px solid var(--border); }
+.admin-order-controls > details > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 10px 0; margin: 0; line-height: 1.5; list-style: none; }
+.admin-order-controls > details > summary::-webkit-details-marker { display: none; }
+.admin-order-controls > details > summary::before { content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); flex-shrink: 0; margin-inline: 1px 3px; }
+.admin-order-controls > details[open] > summary::before { transform: rotate(45deg); }
+.admin-order-controls > details[open] { padding-bottom: 14px; }
+.admin-order-controls > details[open] > summary { margin-bottom: 8px; }
+.storefront-order { margin-bottom: 24px; }
+.storefront-order > h2 { margin-bottom: 8px; }
+.storefront-order-list { list-style: none; padding: 0; margin: 0; }
+.storefront-order-row { display: grid; grid-template-columns: 24px minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.storefront-order-row > strong { font-size: 14px; overflow-wrap: anywhere; }
+.storefront-move .form-fields { gap: 0; }
+.storefront-move .button { min-width: 44px; min-height: 44px; padding: 10px; }
+.storefront-move > .message { grid-column: 1 / -1; font-size: 12px; max-width: 150px; }

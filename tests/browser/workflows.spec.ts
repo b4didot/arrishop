@@ -174,6 +174,11 @@ test("admin can override completed status and calendar limits, then archive and 
  await login(context,true);await page.goto(`/admin/orders/${orderId}`);
  const controls=page.locator(".admin-order-controls");
  await expect(controls.getByRole("heading",{name:"Administrator controls"})).toBeVisible();
+ const summaries=await controls.locator("summary").evaluateAll(nodes=>nodes.map(node=>{const rect=node.getBoundingClientRect();return{x:rect.x,y:rect.y,height:rect.height};}));
+ expect(summaries).toHaveLength(3);
+ expect(summaries.every(row=>row.height>=44&&row.height<=46&&row.x===summaries[0].x)).toBe(true);
+ expect(summaries[1].y-summaries[0].y).toBeLessThanOrEqual(46);
+ await controls.screenshot({path: "test-results/admin-controls-"+page.viewportSize()!.width+".png"});
  await controls.getByText("Change order status",{exact:true}).click();
  await controls.getByLabel("New order status",{exact:true}).selectOption("pending_payment");
  await controls.getByLabel("Status change reason (visible to customer)").fill("Reopened for customer request");
@@ -209,4 +214,23 @@ test("admin can override completed status and calendar limits, then archive and 
  await expect(controls.getByText(/Archived: hidden from active admin lists/)).toHaveCount(0);
  await expect(page.getByText("Order restored.",{exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+
+test("admin arrows save storefront product order for customers after reload",async({page,context,request})=>{
+ await request.post("http://127.0.0.1:54329/__product-lineup");
+ await login(context,true);await page.goto("/admin/products");
+ const list=page.locator(".storefront-order-list");
+ await expect(list.locator("li > strong")).toHaveText(["Cookies","Brownies","Muffins"]);
+ await expect(list.getByRole("button",{name:"Move Cookies up",exact:true})).toBeDisabled();
+ await expect(list.getByRole("button",{name:"Move Muffins down",exact:true})).toBeDisabled();
+ await list.getByRole("button",{name:"Move Brownies up",exact:true}).click();
+ await expect(list.locator("li > strong")).toHaveText(["Brownies","Cookies","Muffins"]);
+ await page.reload();await expect(list.locator("li > strong")).toHaveText(["Brownies","Cookies","Muffins"]);
+ await list.getByRole("button",{name:"Move Brownies down",exact:true}).click();
+ await expect(list.locator("li > strong")).toHaveText(["Cookies","Brownies","Muffins"]);
+ await list.getByRole("button",{name:"Move Muffins up",exact:true}).click();
+ await expect(list.locator("li > strong")).toHaveText(["Cookies","Muffins","Brownies"]);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.goto("/");await expect(page.locator(".product-card h3")).toHaveText(["Cookies","Muffins","Brownies"]);
 });

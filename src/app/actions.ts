@@ -228,3 +228,17 @@ export async function saveNotes(_: ActionState, form: FormData): Promise<ActionS
     return { success: "Internal notes saved." };
   } catch (error) { return failure(error); }
 }
+
+export async function moveStorefrontProduct(_: ActionState, form: FormData): Promise<ActionState> {
+  await requireAdmin();
+  try {
+    const direction = form.get("direction");
+    if (direction !== "up" && direction !== "down") throw new Error("Choose up or down.");
+    const client = await createClient();
+    const { error } = await client.rpc("move_storefront_product", {
+      target_product: uuid(form.get("product_id")), move_direction: direction, expected_neighbor: uuid(form.get("neighbor_id")),
+    });
+    dbCheck(error); revalidatePath("/"); revalidatePath("/admin/products");
+    return { success: "Storefront order saved." };
+  } catch (error) { return failure(error); }
+}

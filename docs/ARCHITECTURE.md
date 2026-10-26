@@ -83,3 +83,9 @@ Production functions are configured in Seoul (icn1), matching the Supabase ap-no
 AdminOrderControls posts status, date or archive/restore to a separately authorized Server Action and admin_update_order RPC. Raw updated_at is passed unchanged to preserve PostgreSQL timestamp precision for optimistic concurrency. Status/date reasons appear in public history; archive notes and the full change audit stay administrator-only. Each operation has a confirmation. Normal payment review and quick fulfillment remain available.
 
 Active admin lists and overview query archived_at IS NULL; the orders page offers archived/all views and the report applies the same scope locally. Customer queries and capacity counts deliberately include archived orders. Receipt history renders superseded reviews distinctly from rejected payments. Reopening preserves the original completed_at used by database and Storage chat-retention policies.
+
+## Storefront product order
+
+The database owns the shared product lineup. Home and Admin Products sort by display_order, created_at descending and UUID. StorefrontProductOrder renders active products with small Server Action forms; moveStorefrontProduct verifies admin access and delegates neighbor/concurrency validation to the restricted RPC. Each successful move revalidates storefront and Products. No drag library, local-only ordering, or extra service is required.
+
+Order-control disclosure styling is scoped to admin-order-controls so compact spacing and custom aligned chevrons do not alter other details elements.

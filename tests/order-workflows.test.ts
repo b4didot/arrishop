@@ -301,4 +301,32 @@ test("delivery reservations, private reviews/chat, report counts, and retention"
   await assert.rejects(db.query("select public.admin_update_order($1,now(),'archive','',null,null,true)",[third]),/permission denied/);
  });
 
+
+ await t.test("storefront ordering preserves the old lineup, validates admin moves and appends new products",async()=>{
+  await db.exec("reset role");
+  const other=crypto.randomUUID(),archived=crypto.randomUUID();
+  await db.query("insert into public.products(id,title,price_centavos,created_at,archived_at) values($1,'Brownies',100,now()+interval '1 minute',null),($2,'Archived cake',100,now()+interval '2 minutes',now())",[other,archived]);
+  const timestamp=await scalar("select updated_at::text as value from public.products where id=$1",[product]);
+  await db.exec(await readFile(new URL("../supabase/migrations/202610260002_storefront_product_order.sql",import.meta.url),"utf8"));
+  assert.equal(await scalar("select updated_at::text as value from public.products where id=$1",[product]),timestamp);
+  const lineup=()=>scalar<string[]>("select array_agg(id order by display_order,created_at desc,id) as value from public.products where archived_at is null");
+  assert.deepEqual(await lineup(),[other,product]);
+  await asUser(a);await assert.rejects(db.query("select public.move_storefront_product($1,'up',$2)",[product,other]),/Administrator/);
+  assert.equal((await db.query("update public.products set display_order=100 where id=$1 returning id",[product])).rows.length,0);
+  assert.deepEqual(await lineup(),[other,product]);
+  await asUser(admin);
+  await db.query("select public.move_storefront_product($1,'up',$2)",[product,other]);
+  assert.deepEqual(await lineup(),[product,other]);
+  await assert.rejects(db.query("select public.move_storefront_product($1,'up',$2)",[product,other]),/order changed/);
+  await assert.rejects(db.query("select public.move_storefront_product($1,'left',$2)",[product,other]),/up or down/);
+  await assert.rejects(db.query("select public.move_storefront_product($1,'down',$2)",[archived,product]),/no longer/);
+  await db.query("select public.move_storefront_product($1,'down',$2)",[product,other]);
+  assert.deepEqual(await lineup(),[other,product]);
+  const fresh=String(await scalar("insert into public.products(title,price_centavos) values('New muffin',100) returning id as value"));
+  assert.deepEqual(await lineup(),[other,product,fresh]);
+  await db.exec("reset role;set role anon");
+  assert.deepEqual(await lineup(),[other,product,fresh]);
+  await assert.rejects(db.query("select public.move_storefront_product($1,'up',$2)",[product,other]),/permission denied/);
+ });
+
 });

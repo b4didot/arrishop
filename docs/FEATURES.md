@@ -87,3 +87,9 @@ Every admin order detail now has Administrator controls for any of the seven sta
 Setting a manual verification/payment/fulfillment status reserves a slot without inventing a receipt or confirmed amount. Existing receipt evidence and confirmed amounts remain intact. Leaving a pending review rejects it with the supplied reason when choosing Payment rejected; otherwise it is marked Superseded by admin status change. Replacement uploads remain possible in the normal payment-entry states. Cancellation releases capacity; reopening restores an existing reservation even if the date is now full.
 
 Archiving hides an order from the default admin overview, list and report. Order archive filters show archived records or both; each archived order can be restored. Customers retain their order history, and archiving keeps reservations and payment records. This order archive is separate from the timed chat archive. Reopening a completed order preserves its first completion timestamp and original chat retention deadline.
+
+## Storefront lineup and compact admin controls
+
+Admin Products includes a Storefront order list with mobile-friendly up/down arrows. Each tap saves immediately for all customers. Archived products are omitted; out-of-stock products remain part of the lineup. Existing products retain the previous newest-first order on migration, new products append, and restored products retain their saved position. Product editing remains below this list.
+
+Administrator order controls use aligned disclosure arrows and compact 44-pixel rows, with consistent dividers and spacing when expanded.

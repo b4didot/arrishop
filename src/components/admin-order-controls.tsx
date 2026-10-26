@@ -20,7 +20,6 @@ export function AdminOrderControls({order}:{order:Order}){
  <Field label="New order status"><select key={order.updated_at} aria-label="New order status" name="new_status" value={status} onChange={event=>setStatus(event.target.value as OrderStatus)}>{Object.entries(statusLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></Field>
  <Field label="Status change reason (visible to customer)"><textarea name="reason" required maxLength={1000}/></Field>
  </ActionForm></details>
- <hr className="divider"/>
  <details><summary className="details-toggle">Change delivery date</summary>
  <p className="small muted">Administrators can choose closed, full, past, or short-notice dates. This explicitly approves the date for this order; existing reservations move with it.</p>
  <ActionForm action={adminUpdateOrder} submitLabel="Confirm delivery date" confirm={`Move ${order.order_number} from ${deliveryDate(order.delivery_date)} to ${date?deliveryDate(date):"the selected date"}? Calendar limits can be exceeded by this override.`}>
@@ -28,7 +27,6 @@ export function AdminOrderControls({order}:{order:Order}){
  <Field label="New delivery date"><input type="date" name="new_delivery_date" required value={date} onChange={event=>setDate(event.target.value)}/></Field>
  <Field label="Delivery change reason (visible to customer)"><textarea name="reason" required maxLength={1000}/></Field>
  </ActionForm></details>
- <hr className="divider"/>
  <details><summary className="details-toggle">{order.archived_at?"Restore archived order":"Archive order"}</summary>
  <p className="small muted">Archiving changes the admin view only. Reservations remain until cancellation, and customers retain their order history.</p>
  <ActionForm action={adminUpdateOrder} submitLabel={order.archived_at?"Restore order":"Archive order"} confirm={`${order.archived_at?"Restore":"Archive"} ${order.order_number}?`}>

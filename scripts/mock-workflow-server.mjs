@@ -6,7 +6,7 @@ const orderId="55555555-5555-4555-8555-555555555555",itemId="66666666-6666-4666-
 const date=new Date(Date.now()+5*86400000).toISOString().slice(0,10);
 const item={id:itemId,order_id:orderId,product_id:product,title:"Cookies",quantity:2,unit_price_centavos:10000,item_count:3,report_count:null};
 const order={id:orderId,order_number:"ARRI-00000001",customer_id:customer,archived_at:null,delivery_date_override:false,status:"completed",total_centavos:20000,customer_name:"Jamie Baker",customer_social_name:"CookieFan",customer_phone:"09123456789",delivery_address:"12 Main Street, Manila",delivery_address_parts:{},delivery_carrier:"lalamove",shipping_fee_centavos:0,delivery_date:date,slot_reserved_at:new Date().toISOString(),completed_at:new Date().toISOString(),created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-const messages=[],reviews=[],objects=new Map(),notifications=[],adminEvents=[];let reportCopies=1;
+const messages=[],reviews=[],objects=new Map(),notifications=[],adminEvents=[];let reportCopies=1;let storefrontIds=[product];
 const png=await sharp({create:{width:2,height:2,channels:3,background:"#f6b69d"}}).png().toBuffer();
 function who(req){try{return JSON.parse(Buffer.from((req.headers.authorization??"").split(" ")[1].split(".")[1],"base64url")).sub;}catch{return customer;}}
 function user(id){return{id,aud:"authenticated",role:"authenticated",email:id===admin?"admin@example.test":"customer@example.test",app_metadata:{provider:"email"},user_metadata:{},created_at:new Date().toISOString()};}
@@ -17,7 +17,8 @@ const server=createServer(async(req,res)=>{
  const chunks=[];for await(const chunk of req)chunks.push(chunk);const bytes=Buffer.concat(chunks);
  let body;try{body=JSON.parse(bytes.toString());}catch{body={};}
  const send=(data,status=200)=>{res.writeHead(status,{"Content-Type":"application/json"});res.end(JSON.stringify(data));};
- if(url.pathname==="/__reset"){messages.length=0;reviews.length=0;notifications.length=0;reportCopies=1;item.report_count=null;adminEvents.length=0;Object.assign(order,{status:"completed",delivery_date:date,archived_at:null,delivery_date_override:false,updated_at:new Date().toISOString()});return send({ok:true});}
+ if(url.pathname==="/__reset"){messages.length=0;reviews.length=0;notifications.length=0;reportCopies=1;storefrontIds=[product];item.report_count=null;adminEvents.length=0;Object.assign(order,{status:"completed",delivery_date:date,archived_at:null,delivery_date_override:false,updated_at:new Date().toISOString()});return send({ok:true});}
+ if(url.pathname==="/__product-lineup"){storefrontIds=[product,"77777777-7777-4777-8777-777777777777","88888888-8888-4888-8888-888888888888"];return send({ok:true});}
  if(url.pathname==="/__report-many"){reportCopies=60;return send({ok:true});}
  if(url.pathname==="/__notify"){notifications.push({id:crypto.randomUUID(),recipient_id:body.recipient_id??customer,order_id:orderId,order_number:order.order_number,kind:body.kind??"message",status:body.status??null,created_at:new Date().toISOString(),read_at:null});return send({ok:true});}
  if(url.pathname==="/health")return send({ok:true});
@@ -46,6 +47,12 @@ const server=createServer(async(req,res)=>{
    order.updated_at=new Date().toISOString();adminEvents.unshift({id:crypto.randomUUID(),order_id:orderId,action:body.change_kind,reason:body.reason||"Restored by administrator",created_at:new Date().toISOString()});
    return send(null);
   }
+  if(name==="move_storefront_product"){
+   if(id!==admin)return send({code:"P0001",message:"Administrator access required."},403);
+   const index=storefrontIds.indexOf(body.target_product),next=index+(body.move_direction==="up"?-1:1);
+   if(!storefrontIds[next]||storefrontIds[next]!==body.expected_neighbor)return send({code:"P0001",message:"Product order changed. Refresh and try again."},400);
+   [storefrontIds[index],storefrontIds[next]]=[storefrontIds[next],storefrontIds[index]];return send(null);
+  }
   if(name==="set_report_count"){item.report_count=body.desired_count;return send(null);}
   if(name==="submit_order_content"){
    if(body.content_kind==="message")messages.push({id:body.entry_id,order_id:body.target_order,sender_id:id,sender_is_admin:id===admin,body:body.content,photo_paths:body.photos,created_at:new Date().toISOString()});
@@ -64,6 +71,7 @@ const server=createServer(async(req,res)=>{
   delivery_settings:[{id:1,lead_days:2,default_capacity:10}],delivery_days:[{delivery_date:date,is_open:true,capacity:10}],
  };
  let rows=tables[name]??[];
+ if(name==="products")rows=storefrontIds.map((id,index)=>({...tables.products[0],id,title:id===product?"Cookies":id.startsWith("777")?"Brownies":"Muffins",display_order:index+1}));
  if(name==="orders"){
   const archive=url.searchParams.get("archived_at");
   if(archive==="is.null")rows=rows.filter(row=>!row.archived_at);

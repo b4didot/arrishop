@@ -152,3 +152,9 @@ Adds orders.archived_at and delivery_date_override, an active-order index, and a
 Status overrides allow all seven valid statuses. Pending payment submissions become rejected (with reason) or superseded (reviewer/time, no fabricated amount). Existing decided submissions are preserved. Manually entering verification/payment-confirmed/processing/completed reserves a slot. Existing reservations remain effective in any noncancelled state. Archiving never releases capacity.
 
 Explicit date overrides set a per-order approval flag, allowing subsequent receipt reservation on that approved closed/full/past date. A customer's normal unreserved date change still enforces availability and clears this flag. Availability includes reserved dates with no calendar configuration, treating them as closed. Same-status delivery history does not duplicate the delivery notification. Completion records the first completion only, so overrides cannot restart expired chat access.
+
+## Migration 202610260002
+
+Adds positive products.display_order backed by an owned bigint sequence and an index for active storefront reads. Backfill ranks existing products by created_at descending then UUID, preserving product_updated timestamps. Sequence-generated positions append new products. Product RLS remains in force; only administrators may write products.
+
+move_storefront_product accepts a product, up/down direction and expected adjacent visible product. It checks administrator membership, serializes moves with product writes using a short table lock, validates the neighbor and atomically swaps positions. Stale/archived/invalid requests fail without partial changes. Anonymous execution is revoked; authenticated callers still require the admin check. Archived positions remain intact.
