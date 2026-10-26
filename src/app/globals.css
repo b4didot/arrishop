@@ -167,3 +167,57 @@ img { max-width: 100%; }
 .carrier-jnt { background: #e62222; }.carrier-lalamove { background: #f47b20; font-size: 18px; font-style: italic; }
 .receipt-photo { margin-top: 16px; }
 .receipt-photo .receipt-image { max-width: 100%; height: auto; }
+
+/* Delivery scheduling, private order content, and the preparation worksheet. */
+.delivery-calendar { border: 0; padding: 0; margin: 16px 0; min-width: 0; }
+.delivery-calendar legend { font-weight: 650; margin-bottom: 12px; }
+.calendar-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+.calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:5px; text-align:center; }
+.calendar-grid > span { padding-block:6px; font-size:11px; }
+.calendar-day { min-width:0; min-height:40px; padding:5px 2px; border:1px solid var(--border); border-radius:9px; background:#fffaf3; color:var(--ink); cursor:pointer; font:inherit; }
+.calendar-day:disabled { background:#f0ece7; color:#938b83; cursor:default; }
+.calendar-day.selected { background:#efd0bc; border-color:#8b5c42; font-weight:700; }
+.calendar-day.open-day:not(.selected) { background:#eaf2e4; }
+.calendar-day small { display:block; font-size:10px; line-height:1.4; }
+.admin-calendar-grid .calendar-day { min-height:62px; }
+.media-picker { display:flex; flex-wrap:wrap; gap:8px; }
+.media-picker .button { cursor:pointer; }
+.media-picker .button:focus-within { outline:2px solid #8b5c42; outline-offset:3px; }
+.visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.content-photo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,140px)); gap:10px; margin-block:12px; }
+.content-photo-grid img { display:block; width:100%; max-height:160px; object-fit:contain; border-radius:9px; background:#f4eee5; }
+.content-photo-grid .button { width:100%; margin-top:6px; font-size:11px; padding:6px; }
+.order-messages { display:flex; flex-direction:column; gap:12px; max-height:600px; overflow:auto; margin-block:18px; }
+.order-message { border:1px solid var(--border); background:#fffaf4; border-radius:12px; padding:14px; }
+.order-message.from-shop { background:#f1eef7; }
+.order-message .panel-header { flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+.message-body { white-space:pre-wrap; overflow-wrap:anywhere; }
+.report-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+.report-filters .field { min-width:0; }
+.column-controls { display:grid; gap:6px; max-height:320px; overflow:auto; margin-bottom:14px; }
+.column-controls > div { display:flex; gap:7px; align-items:center; border-bottom:1px solid var(--border); padding:4px; }
+.column-controls label { flex:1; margin:0; }
+.column-controls button { flex:none; min-width:36px; min-height:36px; border:1px solid var(--border); border-radius:6px; background:#fffaf3; cursor:pointer; }
+.column-controls button:disabled { opacity:.4; }
+.report-scroll { width:100%; overflow:auto; max-height:75vh; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; }
+.order-report { border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; line-height:1.5; }
+.order-report th,.order-report td { border-right:1px solid #d6d0c9; border-bottom:1px solid #d6d0c9; padding:var(--report-padding); white-space:nowrap; text-align:left; }
+.order-report th { position:sticky; top:0; background:#f0e7dc; z-index:2; }
+.order-report th button { font:inherit; font-weight:650; border:0; padding:0; background:none; cursor:pointer; color:inherit; }
+.order-report td { background:#fffdf8; }
+.order-report tr:nth-child(even) td { background:#f8f2e9; }
+.order-report .pinned-name { position:sticky; left:0; z-index:1; border-right:2px solid #c8b49e; }
+.order-report th.pinned-name { z-index:3; }
+.report-status,.report-count { font:inherit; padding:3px; border:0; background:none; color:#644735; text-decoration:underline; cursor:pointer; }
+.report-count { min-width:36px; }
+.report-count.overridden { font-weight:700; color:#785095; }
+.report-zoom { display:flex; align-items:center; gap:9px; }
+.report-dialog { max-width:min(520px,calc(100vw - 32px)); max-height:85vh; overflow:auto; padding:24px; margin:auto; border:1px solid var(--border); border-radius:16px; background:var(--cream); color:var(--ink); box-shadow:0 10px 50px #37251633; }
+.report-dialog::backdrop { background:#392b2366; }
+.report-dialog p { margin-block:14px; }
+@media(max-width:560px) {
+ .admin-calendar-grid .calendar-day { min-height:50px; }
+ .report-panel { padding:12px; }
+ .report-panel > .panel-header { flex-wrap:wrap; gap:12px; }
+ .report-filters { grid-template-columns:minmax(0,1fr); }
+}

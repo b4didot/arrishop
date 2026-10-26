@@ -20,3 +20,9 @@ Open `http://localhost:3000`. Copy `.env.example` to `.env.local` for another ch
 - [Implementation plan and status](docs/IMPLEMENTATION_PLAN.md)
 
 Checks: `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:browser`. The initial migration and website are deployed. Eight desktop/mobile guest browser checks pass against the live domain; local checks do not replace authenticated customer/payment/recovery-email verification described in the setup guide.
+
+### New order workflows
+
+Local source now includes the delivery calendar, private completed-order reviews, per-order messages, and a customizable Order Report. Apply migration 202610250001_order_workflows.sql and follow the rollout section in docs/SETUP.md before deploying. Delivery dates start closed until an administrator opens them. Scheduled chat/photo deletion requires server-only cleanup credentials.
+
+Run npm run test:workflows-ui for isolated authenticated desktop/mobile checks using local fixture data. Next.js is patched to 16.4.3.

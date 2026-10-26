@@ -53,7 +53,7 @@ export function ProductEditor({ product }: { product?: Product }) {
   }
   return <ActionForm action={save} submitLabel={product ? "Save product" : "Create product"}>
     {product && <input type="hidden" name="id" value={product.id} />}
-    <Field label="Product name"><input name="title" required maxLength={120} defaultValue={product?.title} placeholder="A lovely little name" /></Field>
+    <Field label="Item count per unit"><input name="item_count" type="number" min="1" max="10000" step="1" required defaultValue={product?.item_count ?? 1} /><span className="field-hint">Suggested report count = quantity ordered × item count.</span></Field><Field label="Product name"><input name="title" required maxLength={120} defaultValue={product?.title} placeholder="A lovely little name" /></Field>
     <Field label="Description"><textarea name="description" required maxLength={2000} defaultValue={product?.description} placeholder="Tell customers what makes it special" /></Field>
     <Field label="Price (PHP)"><input name="price" type="text" inputMode="decimal" pattern="[0-9]+(\.[0-9]{1,2})?" required defaultValue={product ? (product.price_centavos / 100).toFixed(2) : undefined} placeholder="0.00" /></Field>
     <div><p className="photo-label">Product photos</p><p className="field-hint">Add up to 3 photos. Choose the primary photo for the shop. JPG, PNG or WebP, up to 5 MB each.</p></div>

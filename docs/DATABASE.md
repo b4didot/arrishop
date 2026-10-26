@@ -4,7 +4,7 @@ The implemented schema is in `supabase/migrations/202610130001_initial.sql`. It 
 
 | Table | Minimal fields and constraints |
 | --- | --- |
-| `profiles` | `id` references auth.users, full_name, social_name (required before checkout), phone, delivery_address, created_at, updated_at; email owned by Auth |
+| `profiles` | `id` references auth.users, full_name, social_name (optional), phone, delivery_address, created_at, updated_at; email owned by Auth |
 | `admin_users` | user_id references auth.users; managed only through trusted provisioning |
 | `products` | id, title, description, price_centavos >= 0, image_path, out_of_stock, archived_at, created_at, updated_at |
 | `cart_items` | customer_id, product_id, quantity > 0; unique customer/product |
@@ -93,3 +93,42 @@ Migration `202610130009` was applied to the linked Supabase project on October 1
 Migration `202610130010_receipt_photos.sql` adds `payment_submissions.receipt_paths`, backfilled from each existing `receipt_path`. The array must contain one or two distinct non-null paths, beginning with the legacy-compatible `receipt_path`. The updated read helper covers every photo in the array. The three-argument submission RPC checks ownership, distinct paths, and Storage existence for every photo before updating order status; its two-argument wrapper preserves single-photo clients during rollout. Receipt files stay private and immutable under the existing Storage policies.
 
 Migration `202610130010` was applied to the linked Supabase project on October 13, 2026. Remote verification found six existing submissions backfilled and no invalid photo counts.
+
+## Migration 202610250001: order workflows
+
+This migration is applied to hosted arrishop; see the hosted verification and staged activation notes below.
+
+- delivery_settings: singleton lead_days (0–365; default 2) and default_capacity (1–10000; default 10).
+- delivery_days: explicit delivery_date primary key, is_open, positive capacity. Unconfigured dates are closed. Authenticated customers may read availability; only administrators change settings/dates. Customer-visible availability exposes aggregate counts, never other customers' orders.
+- orders: nullable delivery_date, slot_reserved_at, completed_at. Existing receipt-bearing orders are backfilled as reserved; historical delivery dates remain unknown rather than guessed. Existing completed orders derive completion time from status history, falling back to updated_at.
+- products.item_count and order_items.item_count: 1–10000, default 1. An insert trigger snapshots the current product multiplier. Historical line items default to 1.
+- order_items.report_count: optional administrator override, 0–10000000. Null restores quantity × snapshotted item_count.
+- order_reviews: one per order, customer identity, overall text (up to 5000), product-ID-keyed item_reviews (each comment up to 3000), up to five photo_paths total, creation timestamp. Submit RPC checks completion, ownership, ordered products, photos, and retries. Select policies expose reviews only to owner/administrators.
+- order_messages: immutable UUID-keyed entries with order, sender, administrator flag, text (up to 3000), up to three photo_paths, timestamp. Text can be empty when photos exist. Sender identity/role comes from Auth/database state. Direct customer/admin writes are revoked.
+- Private order-media bucket: immutable review/message photos under uploader UUID/order UUID/kind/entry UUID-index.extension. JPG/PNG/WebP, max 5 MB. Policies enforce ownership, review eligibility, conversation windows, and access to finalized/staged paths. No application delete/update policies.
+
+checkout(uuid,text,date) requires an available delivery date while preserving retries. checkout(uuid,text) preserves the deployed undated flow only while the staged rollout gate is false; after activation it permits committed retries only. The one-argument compatibility function remains retries-only. Social/Nickname becomes optional again. set_order_delivery checks ownership and reservation state. check_delivery_day is internal and has no client execution grant.
+
+submit_receipt retains its existing contracts and evidence validation; its insert trigger atomically reserves the first slot, with a shared calendar lock. Rejected evidence keeps the reservation. Existing administrator cancellation rules remain: review a pending receipt first, then cancel. Completed orders continue counting toward their delivery date's capacity.
+
+submit_order_content validates review/message type, owner/admin access, UUID retry keys, content bounds, distinct photos, scoped filenames, and object existence. Clients cannot change sender identity or publish reviews. order_chat_access hides customer messages and photos at completion +10 days, and administrator access at +70 days. Already-issued signed URLs can remain usable for their remaining five-minute lifetime.
+
+expired_order_chat_photos and purge_expired_order_messages have execution grants only for the service role. The daily maintenance endpoint removes Storage objects through the Storage API before deleting expired rows, including photo-less messages. It never deletes storage metadata directly. Unexpired staged uploads and review/receipt assets are retained. Review/media retention is independent of chat retention.
+
+Slot/settings changes serialize in PostgreSQL. The local PGlite tests validate rules and rollbacks but do not simulate concurrent independent Supabase connections; verify the last-slot race with two customers during staging acceptance.
+
+## Hosted migration verification — October 25, 2026
+
+Applied migration 202610250001_order_workflows.sql to the existing arrishop project (spcuuigipezraflkmsaj) with the owner's explicit authorization. Remote migration history matches local history through this version. Verified all four new tables have RLS, order-media is private with 5 MB JPG/PNG/WebP limits, cleanup is denied to customers and allowed to the service role, and both checkout entry points have the intended grants. Reservation/completion backfills have zero invalid rows.
+
+The pre/post application snapshots match all original fields and row counts across ten application tables, including 21 orders, 6 products, and 20 payment submissions. Historical updated_at values were preserved by disabling only the order_updated trigger during the transactional backfill, then restoring it. Snapshots and comparison scripts are in ignored supabase/.temp/migration-backups/202610250001; do not commit or share their customer data.
+
+To allow applying this migration before deploying the new UI, delivery_settings.enforce_delivery_dates starts false. The existing two-argument checkout is preserved as a private checkout_before_calendar helper and is used only by the compatibility wrapper while this flag is false. Undated receipt submissions also remain compatible during this rollout window. The new three-argument checkout always validates its delivery date and capacity.
+
+After the matching application is deployed and delivery dates are opened, activate strict enforcement with a trusted SQL operation:
+```sql
+update public.delivery_settings set enforce_delivery_dates = true where id = 1;
+```
+After activation, the old entry point permits only committed retries and unreserved undated orders must choose a date before receipt submission. The legacy helper is not executable by customers. Do not enable the gate while the old checkout is still deployed. The migration does not itself deploy the website, open dates, or configure the cleanup secrets/job.
+
+All 32 local automated tests pass, including compatibility before activation and strict reservation checks after activation. Physical-phone camera, hosted Storage behavior, independent-connection last-slot races, and scheduled cleanup still require deployment acceptance.

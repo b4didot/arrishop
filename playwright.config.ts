@@ -8,6 +8,7 @@ const localBrowser = process.platform === "win32" ? [
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 export default defineConfig({
   testDir: "./tests/browser",
+  testIgnore: "workflows.spec.ts",
   fullyParallel: true,
   use: { baseURL, launchOptions: { ...(localBrowser ? { executablePath: localBrowser } : {}) }, trace: "retain-on-failure" },
   projects: [{ name: "desktop", use: { ...devices["Desktop Chrome"] } }, { name: "mobile", use: { ...devices["iPhone 13"], defaultBrowserType: "chromium" } }],

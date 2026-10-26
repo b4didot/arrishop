@@ -20,7 +20,7 @@ function dbCheck(error: { code?: string; message: string } | null) {
 }
 function refreshOrder(id: string) {
   revalidatePath(`/orders/${id}`); revalidatePath("/orders");
-  revalidatePath(`/admin/orders/${id}`); revalidatePath("/admin/orders"); revalidatePath("/admin");
+  revalidatePath(`/admin/orders/${id}`); revalidatePath("/admin/orders"); revalidatePath("/admin"); revalidatePath("/admin/report"); revalidatePath("/admin/calendar");
 }
 export async function signIn(_: ActionState, form: FormData): Promise<ActionState> {
   let next: string;
@@ -40,7 +40,7 @@ export async function register(_: ActionState, form: FormData): Promise<ActionSt
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Please enter a valid email address.");
     const newPassword = password(form);
     const { data, error } = await client.auth.signUp({ email, password: newPassword, options: {
-      data: { full_name: text(form, "full_name", "your full name", 120), social_name: text(form, "social_name", "your social/nickname", 120), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) },
+      data: { full_name: text(form, "full_name", "your full name", 120), social_name: text(form, "social_name", "your social/nickname", 120, 0), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) },
     } });
     if (error) return { error: "We couldn't create your account. Try again, or log in if you already have an account." };
     signedIn = Boolean(data.session);
@@ -76,7 +76,7 @@ export async function saveProfile(_: ActionState, form: FormData): Promise<Actio
   const user = await requireUser("/account");
   try {
     const client = await createClient();
-    const { error } = await client.from("profiles").update({ full_name: text(form, "full_name", "your full name", 120), social_name: text(form, "social_name", "your social/nickname", 120), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) }).eq("id", user.id).select("id").single();
+    const { error } = await client.from("profiles").update({ full_name: text(form, "full_name", "your full name", 120), social_name: text(form, "social_name", "your social/nickname", 120, 0), phone: text(form, "phone", "your phone number", 30), ...deliveryAddress(form) }).eq("id", user.id).select("id").single();
     dbCheck(error); revalidatePath("/account"); revalidatePath("/checkout");
     return { success: "Your details are saved." };
   } catch (error) { return failure(error); }
@@ -104,7 +104,7 @@ export async function placeOrder(_: ActionState, form: FormData): Promise<Action
   let orderId: string;
   try {
     const client = await createClient();
-    const { data, error } = await client.rpc("checkout", { request_key: uuid(form.get("checkout_key")), selected_carrier: deliveryCarrier(form.get("delivery_carrier")) });
+    const { data, error } = await client.rpc("checkout", { request_key: uuid(form.get("checkout_key")), selected_carrier: deliveryCarrier(form.get("delivery_carrier")), chosen_date: text(form, "delivery_date", "a delivery date", 10) });
     dbCheck(error); orderId = uuid(data); revalidatePath("/", "layout");
   } catch (error) { return failure(error); }
   redirect(`/orders/${orderId}?placed=1`);
@@ -155,7 +155,8 @@ export async function saveProduct(_: ActionState, form: FormData): Promise<Actio
       const image = new FormData(); image.set("photo", new File([blob], "photo", { type: blob.type }));
       await imageFile(image, "photo");
     }
-    const values = { title, description, price_centavos: price, out_of_stock: form.get("out_of_stock") === "on", image_path: primary, image_paths: paths };
+    const countValue = String(form.get("item_count") ?? "1"); if (!/^\d{1,5}$/.test(countValue) || Number(countValue)<1 || Number(countValue)>10000) throw new Error("Item count must be a whole number from 1 to 10000.");
+    const values = { title, description, price_centavos: price, item_count: Number(countValue), out_of_stock: form.get("out_of_stock") === "on", image_path: primary, image_paths: paths };
     const result = form.get("id") ? await client.from("products").update(values).eq("id", id).select("id").single() : await client.from("products").insert({ id, ...values }).select("id").single();
     dbCheck(result.error); revalidatePath("/"); revalidatePath("/admin/products");
     return { success: "Product saved." };

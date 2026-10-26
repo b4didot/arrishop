@@ -10,7 +10,7 @@ This repository is Arrie Store, an online baked-goods store. It is unrelated to 
 - Keep receipts private and administrative notes inaccessible to customers.
 - Use integer centavos for money and PHP for display. Store UTC timestamps and display them in Asia/Manila.
 - Never commit credentials. Never put service-role credentials in client code.
-- No automated payments, quantity inventory, discounts, variants, reviews, messaging, or other excluded features.
+- No automated payments, quantity inventory, discounts, or variants. Delivery scheduling, private post-order reviews, order messaging, and an administrator Order Report are authorized features.
 - Implement in working milestones with checks appropriate to each change.
 
 The companion documents describe the implemented application and identify external setup and verification still pending.

@@ -24,7 +24,7 @@ test("storefront opens with products and keeps the cart visible while scrolling"
   await expect(page).toHaveURL(/\/login\?next=%2Fcart/, { timeout: 15000 });
 });
 test("guests are redirected from customer and administrator routes", async ({ page }) => {
-  for (const route of ["/cart", "/checkout", "/orders", "/account", "/admin", "/admin/products", "/admin/orders", "/admin/settings"]) {
+  for (const route of ["/cart", "/checkout", "/orders", "/account", "/admin", "/admin/products", "/admin/orders", "/admin/settings", "/admin/calendar", "/admin/report"]) {
     await page.goto(route);
     await expect(page).toHaveURL(/\/login\?next=/);
     await expect(page.getByRole("heading", { name: "Welcome back!" })).toBeVisible();
@@ -33,7 +33,7 @@ test("guests are redirected from customer and administrator routes", async ({ pa
 test("registration and recovery forms have visible labels and native validation", async ({ page }, info) => {
   await page.goto("/register");
   for (const label of ["Full name", "Social/Nickname", "Email address", "Password", "Phone number", "Street Address", "Subdivision / District / Landmark", "Barangay", "City / Municipality", "Province / Region", "ZIP Code"]) await expect(page.getByLabel(label, { exact: true })).toBeVisible();
-  expect(await page.getByLabel("Social/Nickname", { exact: true }).evaluate((element: HTMLInputElement) => element.required)).toBe(true);
+  expect(await page.getByLabel("Social/Nickname", { exact: true }).evaluate((element: HTMLInputElement) => element.required)).toBe(false);
   await expect(page.getByLabel("Street Address", { exact: true })).toHaveAttribute("placeholder", "House No., Unit, Block/Lot, Street");
   expect(await page.getByLabel("Subdivision / District / Landmark", { exact: true }).evaluate((element: HTMLInputElement) => element.required)).toBe(false);
   for (const label of ["Street Address", "Barangay", "City / Municipality", "Province / Region", "ZIP Code"]) expect(await page.getByLabel(label, {exact:true}).evaluate((element: HTMLInputElement) => element.required)).toBe(true);

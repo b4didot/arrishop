@@ -23,7 +23,7 @@ export async function getOrder(id: string) {
   if (error) throw new Error("We couldn't load this order. Please try again.");
   if (!order) return null;
   const results = await Promise.all([
-    client.from("order_items").select("id,title,unit_price_centavos,quantity").eq("order_id", id).order("id"),
+    client.from("order_items").select("id,product_id,title,unit_price_centavos,quantity,item_count,report_count").eq("order_id", id).order("id"),
     client.from("payment_submissions").select("id,receipt_path,receipt_paths,submitted_at,decision,amount_received_centavos,rejection_reason,reviewed_at").eq("order_id", id).order("submitted_at", { ascending: false }),
     client.from("order_status_history").select("id,previous_status,next_status,reason,created_at").eq("order_id", id).order("created_at", { ascending: false }),
     client.from("payment_settings").select("id,qr_path,instructions").eq("id", 1).maybeSingle(),

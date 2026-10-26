@@ -143,3 +143,40 @@ Apply `202610130010_receipt_photos.sql` before deploying two-photo receipt submi
 The daily synthetic Auth check uses Supabase Cron and `pg_net`, not Vercel Cron. After applying migration `202610130005_synthetic_auth_check.sql`, configure the single row in `private.synthetic_auth_config` with the project URL and publishable key from `.env.local` through a trusted SQL session. Keep the key out of the migration and Git. Confirm the two jobs are active in `cron.job` and inspect `cron.job_run_details` and `net._http_response` if a signup fails. The signup is scheduled for 12:00 Philippine time; cleanup runs every 30 seconds and removes a marked account once it is at least two minutes old. No service-role key is needed by the app or scheduler.
 
 The linked production project has both jobs and the private configuration active. The public Auth signup and automated cleanup were verified with a temporary account on October 13, 2026. To reproduce on a new project, apply migration `202610130006_synthetic_auth_password_fix.sql` as well, then set that project's own URL and publishable key in the private configuration.
+
+## Rollout: calendar, reviews, order messages, and report
+
+1. Back up the database and apply supabase/migrations/202610250001_order_workflows.sql after migrations 001–010. The migration is not applied automatically by a Next.js deployment.
+2. Configure server-only Vercel environment variables SUPABASE_SERVICE_ROLE_KEY and CRON_SECRET. Use a strong random secret; never give either variable a NEXT_PUBLIC_ prefix or commit it. Ordinary customer/admin workflows use session-scoped clients; only scheduled physical cleanup needs the service-role key.
+3. Deploy the matching application. vercel.json schedules /api/cron/order-chat-cleanup daily at 16:00 UTC (midnight Asia/Manila). Vercel sends Authorization: Bearer CRON_SECRET. Verify an authorized call and check the scheduled job's logs. An unconfigured endpoint returns 503, and a missing/wrong authorization returns 401 when the secret is configured.
+4. Open /admin/calendar, confirm lead time/default capacity, and explicitly open the shop's delivery dates before enabling customer checkout. No dates are opened automatically.
+5. Historical orders preserve unknown delivery dates. Existing receipt-bearing orders appear in the report as reserved/Not scheduled; administrators may assign an available date to undated nonterminal orders from order details. Historical completed orders remain unscheduled.
+6. Confirm product item counts in Products; existing products/line items default to 1. Counts must be positive. Report overrides change only an individual preparation count.
+
+Validation commands:
+- npm run typecheck
+- npm test
+- npm run build
+- npm run test:browser (existing guest/loading/gallery checks; use local mode)
+- npm run test:workflows-ui (isolated authenticated desktop/mobile fixture checks; no live orders, payments, emails, or customer data)
+
+The workflow browser checks start an API fixture on 127.0.0.1:54329 and Next.js on localhost:3107 with fixture-only public connection settings. Run them separately from other Next.js dev/build processes using this checkout. Test tokens and users are synthetic and accepted only by that fixture.
+
+Before production acceptance, use staging customer/admin accounts to verify direct photo uploads, camera picking on a physical phone, completion reviews, conversation access at retention boundaries, and two customers competing for the last date slot. The archive is hidden at day 10; database/Storage access closes at day 70; physical deletion follows on the next daily maintenance run. Without the server secrets or a working cron schedule, access expiry still works but physical deletion does not run. Review and receipt photos are intentionally outside chat cleanup.
+
+For the existing guest, gallery, and loading regressions against the same isolated fixture, run npx playwright test --config=playwright.regression.config.ts. The fixture sets ARRIE_UI_FIXTURE=1 in development to serve its local images without the production image optimizer; production retains the Supabase-only image allowlist and optimization.
+## Hosted migration verification — October 25, 2026
+
+Applied migration 202610250001_order_workflows.sql to the existing arrishop project (spcuuigipezraflkmsaj) with the owner's explicit authorization. Remote migration history matches local history through this version. Verified all four new tables have RLS, order-media is private with 5 MB JPG/PNG/WebP limits, cleanup is denied to customers and allowed to the service role, and both checkout entry points have the intended grants. Reservation/completion backfills have zero invalid rows.
+
+The pre/post application snapshots match all original fields and row counts across ten application tables, including 21 orders, 6 products, and 20 payment submissions. Historical updated_at values were preserved by disabling only the order_updated trigger during the transactional backfill, then restoring it. Snapshots and comparison scripts are in ignored supabase/.temp/migration-backups/202610250001; do not commit or share their customer data.
+
+To allow applying this migration before deploying the new UI, delivery_settings.enforce_delivery_dates starts false. The existing two-argument checkout is preserved as a private checkout_before_calendar helper and is used only by the compatibility wrapper while this flag is false. Undated receipt submissions also remain compatible during this rollout window. The new three-argument checkout always validates its delivery date and capacity.
+
+After the matching application is deployed and delivery dates are opened, activate strict enforcement with a trusted SQL operation:
+```sql
+update public.delivery_settings set enforce_delivery_dates = true where id = 1;
+```
+After activation, the old entry point permits only committed retries and unreserved undated orders must choose a date before receipt submission. The legacy helper is not executable by customers. Do not enable the gate while the old checkout is still deployed. The migration does not itself deploy the website, open dates, or configure the cleanup secrets/job.
+
+All 32 local automated tests pass, including compatibility before activation and strict reservation checks after activation. Physical-phone camera, hosted Storage behavior, independent-connection last-slot races, and scheduled cleanup still require deployment acceptance.

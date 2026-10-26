@@ -73,3 +73,13 @@ Each milestone updates its relevant documentation. Server/database rules should 
 Milestones 1–5 have source implementations, including the initial migration and trusted administrator provisioning script for `arrisnipshop@gmail.com`. The foundation, customer routes, and admin routes compile in production. Local PostgreSQL/security checks and desktop/mobile guest browser checks pass.
 
 Milestone 6 deployment work is complete: source is pushed to `b4didot/arrishop`, Vercel project `arrie-store` is connected to `main`, and the website is live at `https://arrie.store` with www redirected to the apex. The Supabase schema and administrator memberships are deployed; the live catalog contains customer-supplied products. Production environment variables and Supabase callback URLs are configured. The hosted build, local database checks, and eight guest desktop/mobile browser checks pass. Full authenticated payment/recovery and simultaneous transaction verification remain separate checks. Local connection/session values remain in ignored files; migrations use the separate authenticated CLI session.
+
+## Approved expansion — October 25, 2026
+
+The owner authorized delivery availability/capacity, private completed-order reviews, per-order messages, and a separate preparation report. This supersedes the earlier exclusions for reviews/messaging and the required Social/Nickname rule. Social/Nickname is optional free text.
+
+Implemented locally: explicit open dates with per-day capacity and calendar-day lead time; first receipt submission reserves until administrator cancellation; private optional order/product feedback with five photos total; simple text/photo conversations with three photos per message; read-only administrator archive after 10 days and deletion after 60 additional days; snapshotted product multipliers, editable preparation counts, and a customizable/mobile report defaulting to reserved non-cancelled orders.
+
+Deployment is separate: apply migration 202610250001, configure the scheduled cleanup secrets, open delivery dates, deploy matching code, and run live staging acceptance. Existing tests and isolated fixture checks do not establish live integration readiness.
+
+Hosted database migration 202610250001 is applied and verified on the existing arrishop project. All original application data fields and counts were preserved. Website deployment, opened delivery dates, cleanup credentials, and strict delivery-date activation remain rollout steps. The rollout compatibility gate keeps the current live checkout working until then. Local tests: 32 passing.

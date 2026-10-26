@@ -12,7 +12,7 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   const [profile, viewer, params] = await Promise.all([getProfile(user.id), getViewer(), searchParams]);
   return <div className="container page-container"><PageHeading eyebrow="YOUR LITTLE CORNER" title="My account" description="Keep your contact and delivery details up to date.">{viewer.admin && <Link href="/admin" className="button button-soft">Open admin dashboard</Link>}</PageHeading>{params.notice === "admin-only" && <Notice>This area is for shop administrators. You can manage your own details here.</Notice>}<section className="panel narrow"><p className="muted small">Signed in as {user.email}</p><ActionForm action={saveProfile} submitLabel="Save my details">
     <Field label="Full name"><input name="full_name" autoComplete="name" required maxLength={120} defaultValue={profile?.full_name} /></Field>
-    <Field label="Social/Nickname"><input name="social_name" required maxLength={120} defaultValue={profile?.social_name ?? ""} placeholder="Name you use on social media" /></Field>
+    <Field label="Social/Nickname"><input name="social_name" maxLength={120} defaultValue={profile?.social_name ?? ""} placeholder="Name you use on social media" /></Field>
     <Field label="Phone number"><input name="phone" type="tel" autoComplete="tel" required maxLength={30} defaultValue={profile?.phone} /></Field>
     <AddressFields address={profile?.delivery_address_parts} previousAddress={profile?.delivery_address} />
   </ActionForm><p className="small muted" style={{ marginTop: 20, marginBottom: 0 }}>Updates apply to future orders. Existing orders keep the delivery details you confirmed at checkout.</p></section></div>;
