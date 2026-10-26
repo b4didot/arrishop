@@ -12,7 +12,7 @@ export async function OrderConversation({order,items,admin=false}:{order:Order;i
  const archived=completed!==null && Date.now()>=completed+10*86400000;
  const expired=completed!==null && Date.now()>=completed+70*86400000;
  return <>
- <section className="panel"><div className="panel-header"><h2>Order messages</h2>{!expired && <RefreshMessages/>}</div>
+ <section className="panel order-conversation"><div className="panel-header"><h2>Order messages</h2>{!expired && <RefreshMessages/>}</div>
  {expired?<p className="muted">This conversation has reached its deletion date.</p>:archived&&!admin?<p className="muted">This conversation was archived 10 days after completion.</p>:<>
  <p className="small muted">{archived?"Read-only archive. Messages and photos are deleted 60 days after archiving.":"Private messages between you and the shop for this order. Archived 10 days after completion, then deleted 60 days later. Refresh to see new replies."}</p>
  <div className="order-messages">{messages.length?messages.map(message=><article className={`order-message ${message.sender_is_admin?"from-shop":""}`} key={message.id}><div className="panel-header"><strong>{message.sender_is_admin?"Shop":"Customer"}</strong><time className="small muted" dateTime={message.created_at}>{dateTime(message.created_at)}</time></div><p className="message-body">{message.body}</p><Photos photos={message.photos}/></article>):<p className="muted small">No messages yet.</p>}</div>

@@ -30,12 +30,9 @@ export async function getOrder(id: string) {
   ]);
   if (results.some((r) => r.error)) throw new Error("We couldn't load all order details. Please try again.");
   const payments = (results[1].data ?? []) as PaymentSubmission[];
-  const receipts = await Promise.all(payments.map(async (p) => {
-    const photos = await Promise.all(p.receipt_paths.map(async (path) => {
-      const { data } = await client.storage.from("receipts").createSignedUrl(path, 300);
-      return { path, url: data?.signedUrl ?? null };
-    }));
-    return { ...p, photos };
-  }));
+  const paths=[...new Set(payments.flatMap(payment=>payment.receipt_paths))];
+  const signed=paths.length?await client.storage.from("receipts").createSignedUrls(paths,300):{data:[]};
+  const urls=new Map((signed.data??[]).map(photo=>[photo.path,photo.signedUrl]));
+  const receipts=payments.map(payment=>({...payment,photos:payment.receipt_paths.map(path=>({path,url:urls.get(path)??null}))}));
   return { order: order as Order, items: (results[0].data ?? []) as OrderItem[], payments: receipts, history: (results[2].data ?? []) as StatusEntry[], settings: results[3].data as PaymentSettings | null };
 }

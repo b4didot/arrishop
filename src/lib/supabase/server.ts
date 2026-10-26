@@ -1,11 +1,12 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 export function configured() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
 }
-export async function createClient() {
+export const createClient = cache(async () => {
   if (!configured()) throw new Error("Supabase isn't configured yet. See docs/SETUP.md.");
   const store = await cookies();
   return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
@@ -17,4 +18,4 @@ export async function createClient() {
       },
     },
   });
-}
+});

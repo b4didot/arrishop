@@ -132,3 +132,15 @@ update public.delivery_settings set enforce_delivery_dates = true where id = 1;
 After activation, the old entry point permits only committed retries and unreserved undated orders must choose a date before receipt submission. The legacy helper is not executable by customers. Do not enable the gate while the old checkout is still deployed. The migration does not itself deploy the website, open dates, or configure the cleanup secrets/job.
 
 All 32 local automated tests pass, including compatibility before activation and strict reservation checks after activation. Physical-phone camera, hosted Storage behavior, independent-connection last-slot races, and scheduled cleanup still require deployment acceptance.
+
+## Migration 202610250002
+
+Applied to the linked arrishop project. This adds order_notifications (recipient, order, unique event key, kind, order number, optional status, created/read timestamps) with RLS and owner-only SELECT. Only restricted inbox/read RPCs permit acknowledgement; customers cannot edit another recipient's alerts or forge events. Trigger-generated events cover order status history, messages, and actual delivery-date changes, excluding the actor and deduplicating recipients. The historical delivery-date backfill runs before those triggers so it does not create a flood of old alerts.
+
+notification_inbox returns the latest 30 event summaries and an accurate total unread count. read_order_notifications accepts an optional event UUID or an upper timestamp for marking existing alerts read. Both functions require an authenticated caller and filter by auth.uid().
+
+change_cart_item retains set_cart_item's validation and per-customer advisory lock, returning the total persisted quantity in the same transaction. viewer_context returns only the caller's admin membership and cart quantity. All new client RPC execution grants are authenticated-only.
+
+Historical NULL delivery_date values were filled with 2026-10-01, with order_updated disabled only during that transaction to preserve commerce timestamps. Concrete existing dates were untouched.
+
+The owner's one-time request to remove ARRI-00000028 was handled separately from migrations. Its exact UUID was verified and its data/four photos backed up in ignored supabase/.temp/order-report-release. Related rows and the order were deleted in one guarded transaction; photos were removed through the Storage API. Verification found zero matching orders or attached files and 21 remaining orders. The order number sequence was preserved.

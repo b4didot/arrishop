@@ -180,3 +180,13 @@ update public.delivery_settings set enforce_delivery_dates = true where id = 1;
 After activation, the old entry point permits only committed retries and unreserved undated orders must choose a date before receipt submission. The legacy helper is not executable by customers. Do not enable the gate while the old checkout is still deployed. The migration does not itself deploy the website, open dates, or configure the cleanup secrets/job.
 
 All 32 local automated tests pass, including compatibility before activation and strict reservation checks after activation. Physical-phone camera, hosted Storage behavior, independent-connection last-slot races, and scheduled cleanup still require deployment acceptance.
+
+## Report/notification and performance rollout
+
+Apply migration 202610250002_notifications_and_cart before deploying its matching header and cart endpoints. It is applied to production. It preserves the existing commerce RPCs and adds compatible functions; no new environment secrets or email provider are required. In-app alerts work while the app is open.
+
+vercel.json selects Seoul (icn1), matching the existing Supabase database. Check the deployment's build/function region after rollout; no database relocation is needed. Keep the existing cleanup cron and server-only secrets.
+
+Run npm test, npm run typecheck, npm run build, npm run test:workflows-ui, and the isolated regression configuration. Workflow checks cover a 60-row unpaginated report, width persistence and wrapping, notification acknowledgement, calendar hint placement, conversation spacing, three/five-photo uploads, and cart mutation without an RSC refresh. Spinner tests cover ordinary and reduced motion.
+
+The performance check uses a temporary customer account, normal page loads and cart operations, then removes that account and its cart. It creates no orders. Private credentials, removal backups, and measurement scripts remain ignored; never commit them. Compare multiple samples from the same client/location and distinguish cold starts from warm navigation.

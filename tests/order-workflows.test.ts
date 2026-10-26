@@ -27,6 +27,7 @@ test("delivery reservations, private reviews/chat, report counts, and retention"
  `);
  async function asUser(id:string){await db.exec("reset role");await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id]);await db.exec("set role authenticated");}
  async function scalar<T=unknown>(sql:string,params:unknown[]=[]){return(await db.query<{value:T}>(sql,params)).rows[0]?.value;}
+ await db.exec(await readFile(new URL("../supabase/migrations/202610250002_notifications_and_cart.sql",import.meta.url),"utf8"));
  const day=String(await scalar("select to_char((now() at time zone 'Asia/Manila')::date+5,'YYYY-MM-DD') as value"));
  const nextDay=String(await scalar("select to_char((now() at time zone 'Asia/Manila')::date+6,'YYYY-MM-DD') as value"));
  let first:string,second:string;
@@ -167,5 +168,39 @@ test("delivery reservations, private reviews/chat, report counts, and retention"
   await asUser(b);
   assert.equal(await scalar("select count(*)::integer as value from public.order_reviews where order_id=$1",[second]),1);
   assert.equal(await scalar("select count(*)::integer as value from storage.objects where name=$1",[reviewPhoto]),1);
+ });
+ await t.test("notifications are recipient-private, exclude senders, and can only be acknowledged by their recipient",async()=>{
+  await asUser(admin);
+  const entry=crypto.randomUUID();
+  await db.query("select public.submit_order_content($1,$2,'message','A reply for the customer','{}','{}')",[first,entry]);
+  const own=await scalar<{items:{id:string;order_id:string;kind:string;read_at:string|null}[];unread_count:number}>("select public.notification_inbox() as value");
+  assert.equal(own.items.some(n=>n.id===entry),false);
+  await asUser(a);
+  assert.equal(await scalar("select count(*)::integer as value from public.order_notifications where recipient_id<>auth.uid()"),0);
+  const inbox=await scalar<{items:{id:string;order_id:string;kind:string;read_at:string|null}[];unread_count:number}>("select public.notification_inbox() as value");
+  const message=inbox.items.find(n=>n.order_id===first&&n.kind==="message");
+  assert.ok(message);
+  await assert.rejects(db.query("update public.order_notifications set read_at=now()"),/permission denied/);
+  await db.query("select public.read_order_notifications($1,null)",[message.id]);
+  assert.ok(await scalar("select read_at as value from public.order_notifications where id=$1",[message.id]));
+  await db.exec("reset role");
+  const other=await scalar<string>("select id as value from public.order_notifications where recipient_id=$1 and read_at is null limit 1",[b]);
+  assert.ok(other);
+  await asUser(a);await db.query("select public.read_order_notifications($1,null)",[other]);
+  await asUser(b);assert.equal(await scalar("select read_at as value from public.order_notifications where id=$1",[other]),null);
+  await db.query("select public.read_order_notifications()");
+  const readInbox=await scalar<{unread_count:number}>("select public.notification_inbox() as value");
+  assert.equal(readInbox.unread_count,0);
+  await db.exec("reset role;set role anon");
+  await assert.rejects(db.query("select public.notification_inbox()"),/permission denied/);
+ });
+ await t.test("cart mutation returns a server-confirmed total without trusting client prices or another customer",async()=>{
+  await asUser(a);assert.equal(Number(await scalar("select public.change_cart_item($1,2,true) as value",[product])),2);
+  assert.equal(Number(await scalar("select public.change_cart_item($1,1,true) as value",[product])),3);
+  const context=await scalar<{admin:boolean;cart_count:number}>("select public.viewer_context() as value");
+  assert.deepEqual(context,{admin:false,cart_count:3});
+  await asUser(b);assert.equal(Number(await scalar("select public.change_cart_item($1,1,true) as value",[product])),1);
+  await assert.rejects(db.query("select public.change_cart_item($1,999,true)",[product]),/quantity/);
+  const other=await scalar<{cart_count:number}>("select public.viewer_context() as value");assert.equal(other.cart_count,1);
  });
 });

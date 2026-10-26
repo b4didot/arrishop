@@ -6,7 +6,7 @@ const orderId="55555555-5555-4555-8555-555555555555",itemId="66666666-6666-4666-
 const date=new Date(Date.now()+5*86400000).toISOString().slice(0,10);
 const item={id:itemId,order_id:orderId,product_id:product,title:"Cookies",quantity:2,unit_price_centavos:10000,item_count:3,report_count:null};
 const order={id:orderId,order_number:"ARRI-00000001",customer_id:customer,status:"completed",total_centavos:20000,customer_name:"Jamie Baker",customer_social_name:"CookieFan",customer_phone:"09123456789",delivery_address:"12 Main Street, Manila",delivery_address_parts:{},delivery_carrier:"lalamove",shipping_fee_centavos:0,delivery_date:date,slot_reserved_at:new Date().toISOString(),completed_at:new Date().toISOString(),created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-const messages=[],reviews=[],objects=new Map();
+const messages=[],reviews=[],objects=new Map(),notifications=[];let reportCopies=1;
 const png=await sharp({create:{width:2,height:2,channels:3,background:"#f6b69d"}}).png().toBuffer();
 function who(req){try{return JSON.parse(Buffer.from((req.headers.authorization??"").split(" ")[1].split(".")[1],"base64url")).sub;}catch{return customer;}}
 function user(id){return{id,aud:"authenticated",role:"authenticated",email:id===admin?"admin@example.test":"customer@example.test",app_metadata:{provider:"email"},user_metadata:{},created_at:new Date().toISOString()};}
@@ -17,10 +17,13 @@ const server=createServer(async(req,res)=>{
  const chunks=[];for await(const chunk of req)chunks.push(chunk);const bytes=Buffer.concat(chunks);
  let body;try{body=JSON.parse(bytes.toString());}catch{body={};}
  const send=(data,status=200)=>{res.writeHead(status,{"Content-Type":"application/json"});res.end(JSON.stringify(data));};
- if(url.pathname==="/__reset"){messages.length=0;reviews.length=0;item.report_count=null;return send({ok:true});}
+ if(url.pathname==="/__reset"){messages.length=0;reviews.length=0;notifications.length=0;reportCopies=1;item.report_count=null;return send({ok:true});}
+ if(url.pathname==="/__report-many"){reportCopies=60;return send({ok:true});}
+ if(url.pathname==="/__notify"){notifications.push({id:crypto.randomUUID(),recipient_id:body.recipient_id??customer,order_id:orderId,order_number:order.order_number,kind:body.kind??"message",status:body.status??null,created_at:new Date().toISOString(),read_at:null});return send({ok:true});}
  if(url.pathname==="/health")return send({ok:true});
  if(url.pathname==="/auth/v1/user")return send(user(id));
  if(url.pathname.startsWith("/storage/v1/")){
+  if(url.pathname.includes("/object/sign/")&&req.method==="POST"&&Array.isArray(body.paths))return send(body.paths.map(path=>({path,signedURL:`/object/sign/order-media/${path}?token=fixture`,error:null})));
   if(url.pathname.includes("/object/sign/")&&req.method==="POST")return send({signedURL:url.pathname.replace("/storage/v1","")+"?token=fixture"});
   if(req.method==="GET"){res.writeHead(200,{"Content-Type":"image/png"});res.end(png);return;}
   objects.set(url.pathname,bytes);return send({Key:url.pathname,Id:crypto.randomUUID()});
@@ -28,6 +31,11 @@ const server=createServer(async(req,res)=>{
  if(url.pathname.startsWith("/rest/v1/rpc/")){
   const name=url.pathname.split("/").at(-1);
   if(name==="is_admin")return send(id===admin);
+  if(["notification_inbox","read_order_notifications","change_cart_item"].includes(name)&&(req.headers.authorization??"").split(".").length!==3)return send({code:"42501",message:"Please log in first."},403);
+  if(name==="viewer_context")return send({admin:id===admin,cart_count:2});
+  if(name==="change_cart_item")return send(3);
+  if(name==="notification_inbox"){const mine=notifications.filter(n=>n.recipient_id===id);return send({items:mine.toReversed(),unread_count:mine.filter(n=>!n.read_at).length});}
+  if(name==="read_order_notifications"){notifications.filter(n=>n.recipient_id===id&&(!body.target_notification||n.id===body.target_notification)).forEach(n=>n.read_at=new Date().toISOString());return send(null);}
   if(name==="delivery_availability")return send([{delivery_date:date,capacity:10,reserved:1,available:true}]);
   if(name==="set_report_count"){item.report_count=body.desired_count;return send(null);}
   if(name==="submit_order_content"){
@@ -39,7 +47,7 @@ const server=createServer(async(req,res)=>{
  }
  const name=url.pathname.split("/").at(-1);
  const tables={
-  orders:[{...order,order_items:[item]}],order_items:[item],order_messages:messages,order_reviews:reviews,
+  orders:Array.from({length:reportCopies},(_,i)=>({...order,id:i===0?order.id:`00000000-0000-4000-8000-${String(i).padStart(12,"0")}`,order_number:`ARRI-${String(i+1).padStart(8,"0")}`,order_items:[item]})),order_items:[item],order_messages:messages,order_reviews:reviews,
   payment_submissions:[],order_status_history:[],order_admin_details:[{order_id:orderId,notes:""}],
   payment_settings:[{id:1,qr_path:"payment/qr.png",instructions:"Scan to pay"}],
   products:[{id:product,title:"Cookies",description:"Cookies",price_centavos:10000,item_count:3,image_path:"products/cookies.png",image_paths:["products/cookies.png","products/cookies2.png"],out_of_stock:false,archived_at:null,created_at:new Date().toISOString()}],
